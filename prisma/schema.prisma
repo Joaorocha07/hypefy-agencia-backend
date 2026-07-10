@@ -1,0 +1,207 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADM
+  FUNC
+  USER
+}
+
+enum PaymentMethod {
+  PIX
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+enum TransactionType {
+  SALE
+  REFUND
+  COST
+}
+
+enum ChatSender {
+  USER
+  ADM
+  FUNC
+  SYSTEM
+}
+
+model User {
+  id                   String    @id @default(uuid())
+  email                String    @unique
+  passwordHash         String    @map("password_hash")
+  name                 String?
+  role                 UserRole  @default(USER)
+  phone                String?
+  isActive             Boolean   @default(true) @map("is_active")
+  passwordResetToken   String?   @map("password_reset_token")
+  passwordResetExpires DateTime? @map("password_reset_expires")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  orders         Order[]
+  soldStockItems StockItem[] @relation("StockSoldToUser")
+  createdCoupons Coupon[]    @relation("CouponCreatedBy")
+
+  @@map("users")
+}
+
+model Product {
+  id                      String   @id @default(uuid())
+  title                   String
+  description             String?
+  imageUrl                String?  @map("image_url")
+  price                   Decimal  @db.Decimal(10, 2)
+  costPrice               Decimal? @map("cost_price") @db.Decimal(10, 2)
+  stockQuantity           Int      @default(0) @map("stock_quantity")
+  categoryId              String   @map("category_id")
+  platformId              String   @map("platform_id")
+  baratosSociaisServiceId String?  @map("baratos_sociais_service_id")
+  profitMarginPercent     Decimal  @default(0) @map("profit_margin_percent") @db.Decimal(5, 2)
+  isActive                Boolean  @default(true) @map("is_active")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  category   Category    @relation(fields: [categoryId], references: [id])
+  platform   Platform    @relation(fields: [platformId], references: [id])
+  stockItems StockItem[]
+  orders     Order[]
+
+  @@map("products")
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model Platform {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  logoUrl   String?  @map("logo_url")
+  color     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  products Product[]
+
+  @@map("platforms")
+}
+
+model StockItem {
+  id           String    @id @default(uuid())
+  productId    String    @map("product_id")
+  content      String
+  isSold       Boolean   @default(false) @map("is_sold")
+  soldToUserId String?   @map("sold_to_user_id")
+  soldAt       DateTime? @map("sold_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  product    Product @relation(fields: [productId], references: [id])
+  soldToUser User?   @relation("StockSoldToUser", fields: [soldToUserId], references: [id])
+
+  @@map("stock_items")
+}
+
+model Order {
+  id                      String        @id @default(uuid())
+  userId                  String        @map("user_id")
+  productId               String        @map("product_id")
+  quantity                Int           @default(1)
+  unitPrice               Decimal       @map("unit_price") @db.Decimal(10, 2)
+  totalPrice              Decimal       @map("total_price") @db.Decimal(10, 2)
+  discountAmount          Decimal       @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  couponCode              String?       @map("coupon_code")
+  paymentMethod           PaymentMethod @default(PIX) @map("payment_method")
+  paymentStatus           PaymentStatus @default(PENDING) @map("payment_status")
+  mercadoPagoPaymentId    String?       @map("mercado_pago_payment_id")
+  mercadoPagoQrCode       String?       @map("mercado_pago_qr_code") @db.Text
+  mercadoPagoQrCodeBase64 String?       @map("mercado_pago_qr_code_base64") @db.Text
+  orderStatus             OrderStatus   @default(PENDING) @map("order_status")
+  targetUsername          String?       @map("target_username")
+  targetUrl               String?       @map("target_url")
+  baratosSociaisOrderId   String?       @map("baratos_sociais_order_id")
+  deliveredContent        String?       @map("delivered_content") @db.Text
+  createdAt               DateTime      @default(now()) @map("created_at")
+  updatedAt               DateTime      @updatedAt @map("updated_at")
+
+  user         User          @relation(fields: [userId], references: [id])
+  product      Product       @relation(fields: [productId], references: [id])
+  transactions Transaction[]
+  chatMessages ChatMessage[]
+
+  @@map("orders")
+}
+
+model Coupon {
+  id            String       @id @default(uuid())
+  code          String       @unique
+  discountType  DiscountType @default(PERCENTAGE) @map("discount_type")
+  discountValue Decimal      @map("discount_value") @db.Decimal(10, 2)
+  maxUses       Int?         @map("max_uses")
+  usesCount     Int          @default(0) @map("uses_count")
+  validFrom     DateTime?    @map("valid_from")
+  validUntil    DateTime?    @map("valid_until")
+  isActive      Boolean      @default(true) @map("is_active")
+  createdBy     String?      @map("created_by")
+  createdAt     DateTime     @default(now()) @map("created_at")
+
+  creator User? @relation("CouponCreatedBy", fields: [createdBy], references: [id])
+
+  @@map("coupons")
+}
+
+model Transaction {
+  id          String          @id @default(uuid())
+  orderId     String?         @map("order_id")
+  type        TransactionType
+  amount      Decimal         @db.Decimal(10, 2)
+  description String?
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  order Order? @relation(fields: [orderId], references: [id])
+
+  @@map("transactions")
+}
+
+model ChatMessage {
+  id         String     @id @default(uuid())
+  orderId    String     @map("order_id")
+  sender     ChatSender
+  message    String
+  isDelivery Boolean    @default(false) @map("is_delivery")
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@map("chat_messages")
+}

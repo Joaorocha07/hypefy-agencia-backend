@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm -v)",
+      "Bash(npm install *)",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/mercadopago/package.json'\\).version\\)\")",
+      "Bash(npx prisma *)",
+      "Bash(cp .env.example .env.tmp)",
+      "Bash(node -e ' *)",
+      "Bash(rm .env.tmp)",
+      "Bash(timeout 6 node src/server.js)",
+      "Bash(node -e \"console.log\\(1\\)\")",
+      "Bash(curl -s http://localhost:3000/health)",
+      "Bash(node src/server.js)",
+      "Bash(echo \"EXIT CODE: $?\")",
+      "Bash(curl -s http://localhost:3000/api/v1/products)",
+      "Bash(curl -s -X POST http://localhost:3000/api/v1/auth/register -H \"Content-Type: application/json\" -d '{\"email\":\"bad\"}')",
+      "Bash(node -e \"JSON.parse\\(require\\('fs'\\).readFileSync\\('postman/hypefy-agencia-backend.postman_collection.json','utf8'\\)\\); console.log\\('valid JSON'\\)\")",
+      "Bash(curl -s http://localhost:3000/docs.json)",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{try{const j=JSON.parse\\(d\\);console.log\\('paths:',Object.keys\\(j.paths\\).length\\)}catch\\(e\\){console.log\\('not json, first 200 chars:',d.slice\\(0,200\\)\\)}}\\)\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/docs/)",
+      "Bash(curl -s http://localhost:3000/docs/swagger-ui-init.js)",
+      "PowerShell(Get-NetTCPConnection *)",
+      "PowerShell(Stop-Process *)",
+      "mcp__Neon__list_projects",
+      "Bash(tasklist *)",
+      "Bash(wmic process *)",
+      "Bash(taskkill //PID 20452 //F)",
+      "Bash(taskkill //PID 7736 //F)",
+      "mcp__Neon__run_sql",
+      "Bash(npm run *)",
+      "Read(//tmp/**)",
+      "Bash(curl -s http://localhost:3000/api/v1/categories)",
+      "Bash(curl -s http://localhost:3000/api/v1/platforms)",
+      "Bash(curl -s \"http://localhost:3000/api/v1/products?limit=2\")",
+      "Bash(curl -s \"http://localhost:3000/api/v1/products?limit=10\")",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('total:',j.data.total\\); console.log\\(j.data.items.map\\(p=>p.title\\)\\)}\\)\")"
+    ]
+  }
+}

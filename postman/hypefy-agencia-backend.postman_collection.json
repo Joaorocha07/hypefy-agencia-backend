@@ -1,0 +1,387 @@
+{
+  "info": {
+    "name": "Hypefy Agência — Backend API",
+    "description": "Coleção completa dos endpoints do backend Hypefy Agência (auth, produtos, estoque, engajamento/Baratos Sociais, pedidos/Mercado Pago, cupons, chat, funcionários, dashboard).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api/v1" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "productId", "value": "" },
+    { "key": "orderId", "value": "" },
+    { "key": "couponId", "value": "" },
+    { "key": "employeeId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cliente@example.com\",\n  \"password\": \"senha123\",\n  \"name\": \"Cliente Teste\",\n  \"phone\": \"11999999999\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"cliente@example.com\",\n  \"password\": \"senha123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/refresh",
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/forgot-password",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"cliente@example.com\"\n}" }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/reset-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"TOKEN_DO_EMAIL\",\n  \"newPassword\": \"novaSenha123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Change Password (logado)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/change-password",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"senha123\",\n  \"newPassword\": \"novaSenha123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Me (perfil logado)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/auth/me" }
+        }
+      ]
+    },
+    {
+      "name": "Products (Catálogo público)",
+      "item": [
+        {
+          "name": "List Products",
+          "request": {
+            "method": "GET",
+            "auth": { "type": "noauth" },
+            "url": "{{baseUrl}}/products?category=ENGAJAMENTO&platform=INSTAGRAM&page=1&limit=20"
+          }
+        },
+        {
+          "name": "Get Product by ID",
+          "request": { "method": "GET", "auth": { "type": "noauth" }, "url": "{{baseUrl}}/products/{{productId}}" }
+        }
+      ]
+    },
+    {
+      "name": "Products (Admin/Func)",
+      "item": [
+        {
+          "name": "List All Products (admin)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/products/admin/all" }
+        },
+        {
+          "name": "Create Product",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/products/admin",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "title", "value": "1000 Seguidores Instagram", "type": "text" },
+                { "key": "description", "value": "Seguidores mundiais de alta qualidade", "type": "text" },
+                { "key": "price", "value": "29.90", "type": "text" },
+                { "key": "costPrice", "value": "9.00", "type": "text" },
+                { "key": "stockQuantity", "value": "0", "type": "text" },
+                { "key": "category", "value": "ENGAJAMENTO", "type": "text" },
+                { "key": "platform", "value": "INSTAGRAM", "type": "text" },
+                { "key": "profitMarginPercent", "value": "30", "type": "text" },
+                { "key": "image", "type": "file", "src": [] }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Product",
+          "request": {
+            "method": "PUT",
+            "url": "{{baseUrl}}/products/admin/{{productId}}",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "title", "value": "1000 Seguidores Instagram (Atualizado)", "type": "text" },
+                { "key": "image", "type": "file", "src": [] }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Activate/Deactivate Product",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/products/admin/{{productId}}/active",
+            "body": { "mode": "raw", "raw": "{\n  \"isActive\": false\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stock (Admin/Func)",
+      "item": [
+        {
+          "name": "Add Stock Items (batch)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/stock/products/{{productId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    \"email1@netflix.com:senha123\",\n    \"email2@netflix.com:senha456\"\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "List Stock Items of a Product",
+          "request": { "method": "GET", "url": "{{baseUrl}}/stock/products/{{productId}}?isSold=false" }
+        },
+        {
+          "name": "Stock Overview (ADM only — custos/lucro)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/stock/overview" }
+        }
+      ]
+    },
+    {
+      "name": "Customers (Admin/Func)",
+      "item": [
+        { "name": "List Customers", "request": { "method": "GET", "url": "{{baseUrl}}/customers" } },
+        {
+          "name": "Customer Order History",
+          "request": { "method": "GET", "url": "{{baseUrl}}/customers/:id/orders" }
+        }
+      ]
+    },
+    {
+      "name": "Engagement / Baratos Sociais (Admin/Func)",
+      "item": [
+        {
+          "name": "List External Services (cached)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/engagement/services" }
+        },
+        {
+          "name": "List External Services (force refresh)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/engagement/services?refresh=true" }
+        },
+        {
+          "name": "Account Balance (ADM only)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/engagement/balance" }
+        },
+        {
+          "name": "Set Product Margin + Service Link (ADM only)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/engagement/products/{{productId}}/margin",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"baratosSociaisServiceId\": \"1\",\n  \"profitMarginPercent\": 30\n}"
+            }
+          }
+        },
+        {
+          "name": "Request Refill for Order",
+          "request": { "method": "POST", "url": "{{baseUrl}}/engagement/orders/{{orderId}}/refill" }
+        },
+        {
+          "name": "Cancel External Order",
+          "request": { "method": "POST", "url": "{{baseUrl}}/engagement/orders/{{orderId}}/cancel" }
+        }
+      ]
+    },
+    {
+      "name": "Orders / Checkout",
+      "item": [
+        {
+          "name": "Create Order — Digital (streaming/ferramenta)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 1,\n  \"couponCode\": \"PROMO10\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Order — Engajamento",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"{{productId}}\",\n  \"quantity\": 1000,\n  \"targetUsername\": \"@meuperfil\",\n  \"targetUrl\": \"https://instagram.com/meuperfil\"\n}"
+            }
+          }
+        },
+        { "name": "My Orders", "request": { "method": "GET", "url": "{{baseUrl}}/orders/me" } },
+        { "name": "My Order Detail", "request": { "method": "GET", "url": "{{baseUrl}}/orders/me/{{orderId}}" } },
+        {
+          "name": "List All Orders (Admin/Func)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/orders/admin/all?paymentStatus=PAID" }
+        },
+        {
+          "name": "Get Order Detail (Admin/Func)",
+          "request": { "method": "GET", "url": "{{baseUrl}}/orders/admin/{{orderId}}" }
+        }
+      ]
+    },
+    {
+      "name": "Coupons (Admin only)",
+      "item": [
+        {
+          "name": "Create Coupon",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/coupons",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"PROMO10\",\n  \"discountType\": \"PERCENTAGE\",\n  \"discountValue\": 10,\n  \"maxUses\": 100,\n  \"validUntil\": \"2026-12-31T23:59:59.000Z\"\n}"
+            }
+          }
+        },
+        { "name": "List Coupons", "request": { "method": "GET", "url": "{{baseUrl}}/coupons?isActive=true" } },
+        {
+          "name": "Update Coupon",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/coupons/{{couponId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"discountValue\": 15\n}" }
+          }
+        },
+        {
+          "name": "Deactivate Coupon",
+          "request": { "method": "PATCH", "url": "{{baseUrl}}/coupons/{{couponId}}/deactivate" }
+        }
+      ]
+    },
+    {
+      "name": "Chat (Pedido)",
+      "item": [
+        {
+          "name": "List Messages of an Order",
+          "request": { "method": "GET", "url": "{{baseUrl}}/chat/{{orderId}}" }
+        },
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/chat/{{orderId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"message\": \"Olá, ainda não recebi meu produto.\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Employees (Admin only)",
+      "item": [
+        {
+          "name": "Create Employee",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/employees",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"funcionario@hypefy.com\",\n  \"name\": \"Funcionário Teste\",\n  \"temporaryPassword\": \"senhaTemp123\"\n}"
+            }
+          }
+        },
+        { "name": "List Employees", "request": { "method": "GET", "url": "{{baseUrl}}/employees?isActive=true" } },
+        {
+          "name": "Activate/Deactivate Employee",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/employees/{{employeeId}}/active",
+            "body": { "mode": "raw", "raw": "{\n  \"isActive\": false\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard (Admin only)",
+      "item": [
+        { "name": "Summary", "request": { "method": "GET", "url": "{{baseUrl}}/dashboard/summary?period=month" } },
+        {
+          "name": "Detailed Report",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/dashboard/report?startDate=2026-01-01&endDate=2026-12-31"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "Mercado Pago Notification",
+          "request": {
+            "method": "POST",
+            "auth": { "type": "noauth" },
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/webhooks/mercado-pago?type=payment&data.id=123456",
+            "body": { "mode": "raw", "raw": "{\n  \"type\": \"payment\",\n  \"data\": { \"id\": \"123456\" }\n}" }
+          }
+        }
+      ]
+    }
+  ]
+}
