@@ -3,9 +3,11 @@ const AppError = require('../utils/appError');
 const { hashPassword, comparePassword, generateRandomToken, hashToken } = require('../utils/password');
 const { signAccessToken, signRefreshToken, verifyRefreshToken } = require('../utils/jwt');
 const { sendMail } = require('../config/mailer');
+const storageService = require('./storage.service');
+const googleClient = require('../config/google');
 
 function toPublicUser(user) {
-  const { passwordHash, passwordResetToken, passwordResetExpires, ...publicUser } = user;
+  const { passwordHash, passwordResetToken, passwordResetExpires, googleId, ...publicUser } = user;
   return publicUser;
 }
 
@@ -31,9 +33,58 @@ async function register({ email, password, name, phone }) {
 
 async function login({ email, password }) {
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || !(await comparePassword(password, user.passwordHash))) {
+  if (!user || !user.passwordHash || !(await comparePassword(password, user.passwordHash))) {
     throw new AppError('Email ou senha inválidos', 401);
   }
+  if (!user.isActive) throw new AppError('Usuário inativo', 403);
+
+  return { user: toPublicUser(user), ...issueTokens(user) };
+}
+
+async function loginWithGoogle(idToken) {
+  let payload;
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    payload = ticket.getPayload();
+  } catch {
+    throw new AppError('Token do Google inválido', 401);
+  }
+
+  if (!payload || !payload.email_verified) {
+    throw new AppError('Email do Google não verificado', 401);
+  }
+
+  const { sub: googleId, email, name, picture } = payload;
+
+  let user = await prisma.user.findUnique({ where: { googleId } });
+
+  if (!user) {
+    user = await prisma.user.findUnique({ where: { email } });
+
+    if (user) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          googleId,
+          avatarUrl: user.avatarUrl || picture,
+        },
+      });
+    } else {
+      user = await prisma.user.create({
+        data: {
+          email,
+          googleId,
+          name,
+          avatarUrl: picture,
+          role: 'USER',
+        },
+      });
+    }
+  }
+
   if (!user.isActive) throw new AppError('Usuário inativo', 403);
 
   return { user: toPublicUser(user), ...issueTokens(user) };
@@ -97,7 +148,7 @@ async function resetPassword({ token, newPassword }) {
 
 async function changePassword(userId, { currentPassword, newPassword }) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user || !(await comparePassword(currentPassword, user.passwordHash))) {
+  if (!user || !user.passwordHash || !(await comparePassword(currentPassword, user.passwordHash))) {
     throw new AppError('Senha atual incorreta', 401);
   }
 
@@ -105,12 +156,38 @@ async function changePassword(userId, { currentPassword, newPassword }) {
   await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
 }
 
+async function updateProfile(userId, { name, email, phone }, file) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new AppError('Usuário não encontrado', 404);
+
+  if (email && email !== user.email) {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) throw new AppError('Este email já está cadastrado', 409);
+  }
+
+  let avatarUrl = user.avatarUrl;
+  if (file) {
+    const uploaded = await storageService.uploadImage(file, 'avatars');
+    if (user.avatarUrl) await storageService.deleteImage(user.avatarUrl);
+    avatarUrl = uploaded.url;
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { name, email, phone, avatarUrl },
+  });
+
+  return toPublicUser(updated);
+}
+
 module.exports = {
   toPublicUser,
   register,
   login,
+  loginWithGoogle,
   refresh,
   forgotPassword,
   resetPassword,
   changePassword,
+  updateProfile,
 };

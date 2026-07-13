@@ -1,14 +1,16 @@
 const { Router } = require('express');
 const controller = require('../controllers/product.controller');
+const reviewController = require('../controllers/review.controller');
 const validate = require('../middlewares/validate');
 const upload = require('../middlewares/upload');
-const { authenticate, authorize } = require('../middlewares/auth');
+const { authenticate, optionalAuthenticate, authorize } = require('../middlewares/auth');
 const {
   createProductSchema,
   updateProductSchema,
   listProductsSchema,
   setActiveSchema,
 } = require('../validators/product.validator');
+const { listReviewsSchema, upsertReviewSchema } = require('../validators/review.validator');
 
 const router = Router();
 
@@ -37,10 +39,24 @@ const router = Router();
  *         schema: { type: integer, default: 20 }
  *     responses:
  *       200:
- *         description: Lista paginada de produtos ativos (sem campos financeiros)
+ *         description: Lista paginada de produtos ativos, com categoria e plataforma (logo/cor) embutidas — sem campos financeiros/internos (costPrice, profitMarginPercent, baratosSociaisServiceId)
  *         content:
  *           application/json:
- *             schema: { $ref: '#/components/schemas/ApiResponse' }
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         items:
+ *                           type: array
+ *                           items: { $ref: '#/components/schemas/Product' }
+ *                         total: { type: integer }
+ *                         page: { type: integer }
+ *                         limit: { type: integer }
+ *                         pages: { type: integer }
  */
 router.get('/', validate(listProductsSchema), controller.listPublic);
 
@@ -49,7 +65,7 @@ router.get('/', validate(listProductsSchema), controller.listPublic);
  * /products/{id}:
  *   get:
  *     tags: [Products - Público]
- *     summary: Detalhe de um produto ativo
+ *     summary: Detalhe de um produto ativo (dados completos para exibição no catálogo)
  *     security: []
  *     parameters:
  *       - in: path
@@ -58,7 +74,7 @@ router.get('/', validate(listProductsSchema), controller.listPublic);
  *         schema: { type: string, format: uuid }
  *     responses:
  *       200:
- *         description: Produto encontrado
+ *         description: Produto encontrado — inclui título, descrição, imagem, preço, estoque, categoria e plataforma (nome/logo/cor). Não inclui campos financeiros/internos (costPrice, profitMarginPercent, baratosSociaisServiceId).
  *         content:
  *           application/json:
  *             schema:
@@ -69,6 +85,80 @@ router.get('/', validate(listProductsSchema), controller.listPublic);
  *       404: { $ref: '#/components/responses/NotFound' }
  */
 router.get('/:id', controller.getOne);
+
+/**
+ * @swagger
+ * /products/{id}/reviews:
+ *   get:
+ *     tags: [Products - Público]
+ *     summary: Listar avaliações de um produto (paginado, com média e distribuição de notas)
+ *     security: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 5 }
+ *       - in: query
+ *         name: sort
+ *         schema: { type: string, enum: [recent, rating_desc, rating_asc], default: recent }
+ *     responses:
+ *       200:
+ *         description: >
+ *           Lista paginada de avaliações. Se autenticado (token opcional), inclui `myReview`
+ *           (avaliação do próprio usuário, se existir) e `canReview` (true se comprou o produto
+ *           com pedido pago/concluído e ainda não avaliou).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties: { data: { $ref: '#/components/schemas/ReviewList' } }
+ */
+router.get('/:id/reviews', optionalAuthenticate, validate(listReviewsSchema), reviewController.list);
+
+/**
+ * @swagger
+ * /products/{id}/reviews:
+ *   post:
+ *     tags: [Products - Público]
+ *     summary: Criar ou editar minha avaliação deste produto (requer compra paga e concluída)
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [rating]
+ *             properties:
+ *               rating: { type: integer, minimum: 1, maximum: 5 }
+ *               comment: { type: string, maxLength: 500 }
+ *     responses:
+ *       200:
+ *         description: Avaliação criada ou atualizada (edição só é aceita até 7 dias após a criação)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties: { data: { $ref: '#/components/schemas/Review' } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       403: { description: 'Produto não comprado/entregue, ou prazo de edição expirado' }
+ *       422: { $ref: '#/components/responses/ValidationError' }
+ */
+router.post('/:id/reviews', authenticate, validate(upsertReviewSchema), reviewController.upsert);
 
 /**
  * @swagger

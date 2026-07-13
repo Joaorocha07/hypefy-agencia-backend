@@ -3,6 +3,7 @@ const controller = require('../controllers/auth.controller');
 const validate = require('../middlewares/validate');
 const { authenticate } = require('../middlewares/auth');
 const { authRateLimiter } = require('../middlewares/rateLimit');
+const upload = require('../middlewares/upload');
 const {
   registerSchema,
   loginSchema,
@@ -10,6 +11,8 @@ const {
   forgotPasswordSchema,
   resetPasswordSchema,
   changePasswordSchema,
+  updateProfileSchema,
+  googleLoginSchema,
 } = require('../validators/auth.validator');
 
 const router = Router();
@@ -78,6 +81,37 @@ router.post('/register', authRateLimiter, validate(registerSchema), controller.r
  *       401: { description: Email ou senha inválidos, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
  */
 router.post('/login', authRateLimiter, validate(loginSchema), controller.login);
+
+/**
+ * @swagger
+ * /auth/google:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Login/cadastro com Google (recebe o ID Token do Google Identity Services)
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [idToken]
+ *             properties:
+ *               idToken: { type: string, description: 'credential retornado pelo Google Identity Services no front-end' }
+ *     responses:
+ *       200:
+ *         description: Login realizado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties: { data: { $ref: '#/components/schemas/AuthTokens' } }
+ *       401: { description: Token do Google inválido ou email não verificado, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+ *       403: { description: Usuário inativo, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+ */
+router.post('/google', authRateLimiter, validate(googleLoginSchema), controller.googleLogin);
 
 /**
  * @swagger
@@ -202,5 +236,38 @@ router.post('/change-password', authenticate, validate(changePasswordSchema), co
  *       401: { $ref: '#/components/responses/Unauthorized' }
  */
 router.get('/me', authenticate, controller.me);
+
+/**
+ * @swagger
+ * /auth/me:
+ *   put:
+ *     tags: [Auth]
+ *     summary: Editar perfil do usuário autenticado (nome, email, telefone, foto de perfil)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name: { type: string }
+ *               email: { type: string, format: email }
+ *               phone: { type: string }
+ *               avatar: { type: string, format: binary }
+ *     responses:
+ *       200:
+ *         description: Perfil atualizado com sucesso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties: { data: { $ref: '#/components/schemas/User' } }
+ *       401: { $ref: '#/components/responses/Unauthorized' }
+ *       409: { description: Email já cadastrado, content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+ *       422: { $ref: '#/components/responses/ValidationError' }
+ */
+router.put('/me', authenticate, upload.single('avatar'), validate(updateProfileSchema), controller.updateMe);
 
 module.exports = router;

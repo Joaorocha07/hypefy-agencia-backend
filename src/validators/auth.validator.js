@@ -42,6 +42,20 @@ const changePasswordSchema = z.object({
   }),
 });
 
+const updateProfileSchema = z.object({
+  body: z.object({
+    name: z.string().min(2).optional(),
+    email: z.string().email().optional(),
+    phone: z.string().min(8).optional(),
+  }),
+});
+
+const googleLoginSchema = z.object({
+  body: z.object({
+    idToken: z.string().min(1),
+  }),
+});
+
 module.exports = {
   registerSchema,
   loginSchema,
@@ -49,4 +63,6 @@ module.exports = {
   forgotPasswordSchema,
   resetPasswordSchema,
   changePasswordSchema,
+  updateProfileSchema,
+  googleLoginSchema,
 };

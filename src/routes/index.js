@@ -13,6 +13,7 @@ const chatRoutes = require('./chat.routes');
 const employeeRoutes = require('./employee.routes');
 const dashboardRoutes = require('./dashboard.routes');
 const webhookRoutes = require('./webhook.routes');
+const reviewRoutes = require('./review.routes');
 
 const router = Router();
 
@@ -29,5 +30,6 @@ router.use('/chat', chatRoutes);
 router.use('/employees', employeeRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/webhooks', webhookRoutes);
+router.use('/reviews', reviewRoutes);
 
 module.exports = router;

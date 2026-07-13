@@ -13,6 +13,11 @@ const login = asyncHandler(async (req, res) => {
   success(res, result, 'Login realizado com sucesso');
 });
 
+const googleLogin = asyncHandler(async (req, res) => {
+  const result = await authService.loginWithGoogle(req.body.idToken);
+  success(res, result, 'Login com Google realizado com sucesso');
+});
+
 const refresh = asyncHandler(async (req, res) => {
   const result = await authService.refresh(req.body.refreshToken);
   success(res, result, 'Token renovado');
@@ -38,4 +43,19 @@ const me = asyncHandler(async (req, res) => {
   success(res, authService.toPublicUser(user));
 });
 
-module.exports = { register, login, refresh, forgotPassword, resetPassword, changePassword, me };
+const updateMe = asyncHandler(async (req, res) => {
+  const user = await authService.updateProfile(req.user.id, req.body, req.file);
+  success(res, user, 'Perfil atualizado com sucesso');
+});
+
+module.exports = {
+  register,
+  login,
+  googleLogin,
+  refresh,
+  forgotPassword,
+  resetPassword,
+  changePassword,
+  me,
+  updateMe,
+};

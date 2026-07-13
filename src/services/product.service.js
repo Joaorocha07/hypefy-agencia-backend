@@ -7,7 +7,7 @@ const FINANCIAL_FIELDS = ['costPrice', 'profitMarginPercent'];
 
 const CATEGORY_PLATFORM_SELECT = {
   category: { select: { id: true, name: true } },
-  platform: { select: { id: true, name: true } },
+  platform: { select: { id: true, name: true, logoUrl: true, color: true } },
 };
 
 const PUBLIC_SELECT = {

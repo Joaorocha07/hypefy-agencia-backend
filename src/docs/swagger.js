@@ -26,6 +26,7 @@ const options = {
       { name: 'Employees', description: 'Gestão de funcionários (ADM only)' },
       { name: 'Dashboard', description: 'Faturamento e relatórios financeiros (ADM only)' },
       { name: 'Webhooks', description: 'Notificações de sistemas externos' },
+      { name: 'Reviews', description: 'Avaliações de produtos e respostas do suporte (ADM/FUNC)' },
     ],
     components: {
       securitySchemes: {
@@ -55,6 +56,7 @@ const options = {
             email: { type: 'string', format: 'email' },
             name: { type: 'string', nullable: true },
             phone: { type: 'string', nullable: true },
+            avatarUrl: { type: 'string', nullable: true },
             role: { type: 'string', enum: ['ADM', 'FUNC', 'USER'] },
             isActive: { type: 'boolean' },
             createdAt: { type: 'string', format: 'date-time' },
@@ -102,8 +104,56 @@ const options = {
           properties: {
             id: { type: 'string', format: 'uuid' },
             name: { type: 'string' },
+            logoUrl: { type: 'string', nullable: true },
+            color: { type: 'string', nullable: true, description: 'Hex #RRGGBB' },
             createdAt: { type: 'string', format: 'date-time' },
             updatedAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        Review: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            rating: { type: 'integer', minimum: 1, maximum: 5 },
+            comment: { type: 'string', nullable: true },
+            adminReply: { type: 'string', nullable: true },
+            adminRepliedAt: { type: 'string', format: 'date-time', nullable: true },
+            isOwn: { type: 'boolean', description: 'true se esta avaliação é do usuário autenticado na requisição' },
+            canEdit: { type: 'boolean', description: 'true se isOwn e ainda dentro da janela de 7 dias para editar' },
+            user: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', format: 'uuid' },
+                name: { type: 'string', nullable: true },
+                avatarUrl: { type: 'string', nullable: true },
+              },
+            },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        ReviewList: {
+          type: 'object',
+          properties: {
+            items: { type: 'array', items: { $ref: '#/components/schemas/Review' } },
+            total: { type: 'integer' },
+            page: { type: 'integer' },
+            limit: { type: 'integer' },
+            pages: { type: 'integer' },
+            average: { type: 'number', description: 'Média das notas, 0 se não houver avaliações' },
+            distribution: {
+              type: 'object',
+              description: 'Contagem de avaliações por nota (chaves 1 a 5)',
+              properties: {
+                '5': { type: 'integer' },
+                '4': { type: 'integer' },
+                '3': { type: 'integer' },
+                '2': { type: 'integer' },
+                '1': { type: 'integer' },
+              },
+            },
+            myReview: { allOf: [{ $ref: '#/components/schemas/Review' }], nullable: true },
+            canReview: { type: 'boolean', description: 'true se autenticado, comprou o produto e ainda não avaliou' },
           },
         },
         StockItem: {

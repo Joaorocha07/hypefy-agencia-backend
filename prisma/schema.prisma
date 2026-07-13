@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum UserRole {
@@ -52,10 +51,12 @@ enum ChatSender {
 model User {
   id                   String    @id @default(uuid())
   email                String    @unique
-  passwordHash         String    @map("password_hash")
+  passwordHash         String?   @map("password_hash")
+  googleId             String?   @unique @map("google_id")
   name                 String?
   role                 UserRole  @default(USER)
   phone                String?
+  avatarUrl            String?   @map("avatar_url")
   isActive             Boolean   @default(true) @map("is_active")
   passwordResetToken   String?   @map("password_reset_token")
   passwordResetExpires DateTime? @map("password_reset_expires")
@@ -65,6 +66,7 @@ model User {
   orders         Order[]
   soldStockItems StockItem[] @relation("StockSoldToUser")
   createdCoupons Coupon[]    @relation("CouponCreatedBy")
+  reviews        Review[]
 
   @@map("users")
 }
@@ -89,6 +91,7 @@ model Product {
   platform   Platform    @relation(fields: [platformId], references: [id])
   stockItems StockItem[]
   orders     Order[]
+  reviews    Review[]
 
   @@map("products")
 }
@@ -204,4 +207,22 @@ model ChatMessage {
   order Order @relation(fields: [orderId], references: [id])
 
   @@map("chat_messages")
+}
+
+model Review {
+  id             String    @id @default(uuid())
+  productId      String    @map("product_id")
+  userId         String    @map("user_id")
+  rating         Int
+  comment        String?
+  adminReply     String?   @map("admin_reply")
+  adminRepliedAt DateTime? @map("admin_replied_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  product Product @relation(fields: [productId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([userId, productId])
+  @@map("reviews")
 }
