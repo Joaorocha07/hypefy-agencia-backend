@@ -56,6 +56,7 @@ model User {
   name                 String?
   role                 UserRole  @default(USER)
   phone                String?
+  cpf                  String?
   avatarUrl            String?   @map("avatar_url")
   isActive             Boolean   @default(true) @map("is_active")
   passwordResetToken   String?   @map("password_reset_token")

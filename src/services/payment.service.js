@@ -1,31 +1,71 @@
 const crypto = require('crypto');
-const { paymentClient } = require('../config/mercadoPago');
+const { orderClient } = require('../config/mercadoPago');
 const AppError = require('../utils/appError');
 
-async function createPixPayment({ amount, description, payerEmail, externalReference }) {
-  const payment = await paymentClient.create({
+async function createPixOrder({
+  amount,
+  description,
+  payerEmail,
+  payerFirstName,
+  payerLastName,
+  payerCpf,
+  externalReference,
+  deviceId,
+  items,
+}) {
+  const totalAmount = Number(amount).toFixed(2);
+
+  const order = await orderClient.create({
     body: {
-      transaction_amount: Number(amount),
+      type: 'online',
+      processing_mode: 'automatic',
+      total_amount: totalAmount,
       description,
-      payment_method_id: 'pix',
-      payer: { email: payerEmail },
       external_reference: externalReference,
-      notification_url: process.env.MP_WEBHOOK_URL || undefined,
+      payer: {
+        email: payerEmail,
+        first_name: payerFirstName,
+        last_name: payerLastName,
+        identification: payerCpf ? { type: 'CPF', number: payerCpf } : undefined,
+      },
+      transactions: {
+        payments: [
+          {
+            amount: totalAmount,
+            payment_method: {
+              id: 'pix',
+              type: 'bank_transfer',
+              statement_descriptor: process.env.MP_STATEMENT_DESCRIPTOR || undefined,
+            },
+          },
+        ],
+      },
+      items: items?.map((item) => ({
+        title: item.title,
+        category_id: item.categoryId,
+        quantity: item.quantity,
+        unit_price: Number(item.unitPrice).toFixed(2),
+      })),
+      config: {
+        statement_descriptor: process.env.MP_STATEMENT_DESCRIPTOR || undefined,
+        online: process.env.MP_WEBHOOK_URL ? { callback_url: process.env.MP_WEBHOOK_URL } : undefined,
+      },
     },
+    requestOptions: deviceId ? { meliSessionId: deviceId } : undefined,
   });
 
-  const transactionData = payment.point_of_interaction?.transaction_data || {};
+  const paymentMethod = order.transactions?.payments?.[0]?.payment_method || {};
 
   return {
-    paymentId: String(payment.id),
-    status: payment.status,
-    qrCode: transactionData.qr_code,
-    qrCodeBase64: transactionData.qr_code_base64,
+    paymentId: String(order.id), // ID da Order (ex: ORD01...), não de um Payment
+    status: order.status,
+    qrCode: paymentMethod.qr_code,
+    qrCodeBase64: paymentMethod.qr_code_base64,
   };
 }
 
-async function getPayment(paymentId) {
-  return paymentClient.get({ id: paymentId });
+async function getOrder(orderId) {
+  return orderClient.get({ id: orderId });
 }
 
 // Valida a assinatura do webhook do Mercado Pago (header x-signature)
@@ -62,4 +102,4 @@ function verifyWebhookSignature(req) {
   return true;
 }
 
-module.exports = { createPixPayment, getPayment, verifyWebhookSignature };
+module.exports = { createPixOrder, getOrder, verifyWebhookSignature };

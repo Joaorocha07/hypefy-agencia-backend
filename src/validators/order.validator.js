@@ -7,6 +7,7 @@ const createOrderSchema = z.object({
     couponCode: z.string().min(3).max(50).optional(),
     targetUsername: z.string().min(1).optional(),
     targetUrl: z.string().url().optional(),
+    deviceId: z.string().optional(),
   }),
 });
 

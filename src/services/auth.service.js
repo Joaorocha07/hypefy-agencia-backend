@@ -156,13 +156,22 @@ async function changePassword(userId, { currentPassword, newPassword }) {
   await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
 }
 
-async function updateProfile(userId, { name, email, phone }, file) {
+async function updateProfile(userId, { name, email, phone, cpf }, file) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new AppError('Usuário não encontrado', 404);
 
   if (email && email !== user.email) {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) throw new AppError('Este email já está cadastrado', 409);
+  }
+
+  let cpfDigits = user.cpf;
+  if (cpf !== undefined) {
+    cpfDigits = cpf.replace(/\D/g, '');
+    if (cpfDigits.length > 0 && cpfDigits.length !== 11) {
+      throw new AppError('CPF inválido', 422);
+    }
+    if (cpfDigits.length === 0) cpfDigits = null;
   }
 
   let avatarUrl = user.avatarUrl;
@@ -174,7 +183,7 @@ async function updateProfile(userId, { name, email, phone }, file) {
 
   const updated = await prisma.user.update({
     where: { id: userId },
-    data: { name, email, phone, avatarUrl },
+    data: { name, email, phone, cpf: cpfDigits, avatarUrl },
   });
 
   return toPublicUser(updated);

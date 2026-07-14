@@ -36,7 +36,22 @@
       "Bash(curl -s \"http://localhost:3000/api/v1/products?limit=10\")",
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('total:',j.data.total\\); console.log\\(j.data.items.map\\(p=>p.title\\)\\)}\\)\")",
       "Bash(powershell -Command \"Get-ChildItem -Recurse -Path src -Directory | Select-Object FullName\")",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(grep -i \"^\\\\.env$\")",
+      "Bash(xargs grep -liE \"checkout|order|pix|payment|mercadopago|qrcode\")",
+      "Bash(npm view *)",
+      "Bash(npx tsc *)",
+      "WebSearch",
+      "WebFetch(domain:www.mercadopago.com.br)",
+      "WebFetch(domain:www.mercadopago.com.ar)",
+      "Bash(command -v ngrok)",
+      "Bash(ngrok version *)",
+      "Bash(command -v cloudflared)",
+      "Bash(npm ls *)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(winget install *)",
+      "Bash(curl *)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

@@ -4,6 +4,17 @@ const couponService = require('./coupon.service');
 const engagementService = require('./engagement.service');
 const paymentService = require('./payment.service');
 
+function splitName(fullName) {
+  const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { firstName: undefined, lastName: undefined };
+  return { firstName: parts[0], lastName: parts.slice(1).join(' ') || undefined };
+}
+
+// category_id da Orders API não tem enum fechado; usamos um mapeamento aproximado por setor.
+function mercadoPagoCategoryId(categoryName) {
+  return categoryName === 'ENGAJAMENTO' ? 'services' : 'games';
+}
+
 async function computePricing(product, quantity) {
   if (product.category.name === 'ENGAJAMENTO') {
     const services = await engagementService.getExternalServices();
@@ -27,7 +38,7 @@ async function computePricing(product, quantity) {
 }
 
 async function createOrder(userId, data) {
-  const { productId, quantity, couponCode, targetUsername, targetUrl } = data;
+  const { productId, quantity, couponCode, targetUsername, targetUrl, deviceId } = data;
 
   const product = await prisma.product.findUnique({ where: { id: productId }, include: { category: true } });
   if (!product || !product.isActive) throw new AppError('Produto não encontrado ou indisponível', 404);
@@ -72,16 +83,41 @@ async function createOrder(userId, data) {
     },
   });
 
-  const payment = await paymentService.createPixPayment({
-    amount: totalPrice,
-    description: product.title,
-    payerEmail: user.email,
-    externalReference: order.id,
-  });
+  const { firstName, lastName } = splitName(user.name);
+
+  let payment;
+  try {
+    payment = await paymentService.createPixOrder({
+      amount: totalPrice,
+      description: product.title,
+      payerEmail: user.email,
+      payerFirstName: firstName,
+      payerLastName: lastName,
+      payerCpf: user.cpf || undefined,
+      externalReference: order.id,
+      deviceId,
+      items: [
+        {
+          title: product.title,
+          quantity,
+          unitPrice,
+          categoryId: mercadoPagoCategoryId(product.category.name),
+        },
+      ],
+    });
+  } catch (err) {
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { paymentStatus: 'FAILED', orderStatus: 'CANCELLED' },
+    });
+    console.error('Falha ao criar pagamento PIX no Mercado Pago:', JSON.stringify(err.errors ?? err, null, 2));
+    throw new AppError('Não foi possível gerar o pagamento PIX no momento. Tente novamente em instantes.', 502);
+  }
 
   const updatedOrder = await prisma.order.update({
     where: { id: order.id },
     data: {
+      // mercadoPagoPaymentId guarda o ID da Order da Orders API (ex: ORD01...), usado pelo webhook para reconciliar.
       mercadoPagoPaymentId: payment.paymentId,
       mercadoPagoQrCode: payment.qrCode,
       mercadoPagoQrCodeBase64: payment.qrCodeBase64,
