@@ -3,6 +3,7 @@ const AppError = require('../utils/appError');
 const couponService = require('./coupon.service');
 const engagementService = require('./engagement.service');
 const paymentService = require('./payment.service');
+const { syncProductStockQuantity } = require('./stock.service');
 
 function splitName(fullName) {
   const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
@@ -50,7 +51,11 @@ async function createOrder(userId, data) {
       throw new AppError('Informe o @usuário ou link do perfil/post alvo', 422);
     }
   } else {
-    if (product.stockQuantity < quantity) {
+    // Checked live against real StockItem rows, not the cached Product.stockQuantity
+    // counter — that field can only ever be a snapshot, and trusting it here is
+    // exactly what let orders through (or blocked them) on stale data before.
+    const available = await prisma.stockItem.count({ where: { productId: product.id, isSold: false } });
+    if (available < quantity) {
       throw new AppError('Estoque insuficiente para este produto', 409);
     }
   }
@@ -150,13 +155,10 @@ async function fulfillDigitalOrder(order, product) {
     const ids = stockItems.map((s) => s.id);
     await tx.stockItem.updateMany({
       where: { id: { in: ids } },
-      data: { isSold: true, soldToUserId: order.userId, soldAt: new Date() },
+      data: { isSold: true, soldToUserId: order.userId, soldAt: new Date(), orderId: order.id },
     });
 
-    await tx.product.update({
-      where: { id: product.id },
-      data: { stockQuantity: { decrement: order.quantity } },
-    });
+    await syncProductStockQuantity(tx, product.id);
 
     const deliveredContent = stockItems.map((s) => s.content).join('\n---\n');
 
@@ -166,6 +168,15 @@ async function fulfillDigitalOrder(order, product) {
         sender: 'SYSTEM',
         message: deliveredContent,
         isDelivery: true,
+      },
+    });
+
+    await tx.chatMessage.create({
+      data: {
+        orderId: order.id,
+        sender: 'SYSTEM',
+        message: 'Seu acesso está nos dados acima. Qualquer problema, me chame!',
+        isDelivery: false,
       },
     });
 

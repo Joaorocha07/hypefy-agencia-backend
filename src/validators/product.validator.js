@@ -11,11 +11,11 @@ const createProductSchema = z.object({
     description: z.string().optional(),
     price: z.coerce.number().positive(),
     costPrice: z.coerce.number().nonnegative().optional(),
-    stockQuantity: z.coerce.number().int().nonnegative().optional(),
     categoryId: z.string().uuid(),
     platformId: z.string().uuid(),
     baratosSociaisServiceId: z.string().optional(),
     profitMarginPercent: z.coerce.number().nonnegative().optional(),
+    accessDurationDays: z.coerce.number().int().positive().optional(),
   }),
 });
 
@@ -25,11 +25,11 @@ const updateProductSchema = z.object({
     description: z.string().optional(),
     price: z.coerce.number().positive().optional(),
     costPrice: z.coerce.number().nonnegative().optional(),
-    stockQuantity: z.coerce.number().int().nonnegative().optional(),
     categoryId: z.string().uuid().optional(),
     platformId: z.string().uuid().optional(),
     baratosSociaisServiceId: z.string().optional(),
     profitMarginPercent: z.coerce.number().nonnegative().optional(),
+    accessDurationDays: z.coerce.number().int().positive().optional(),
     isActive: zBoolLike.optional(),
   }),
 });

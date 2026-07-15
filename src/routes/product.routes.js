@@ -239,7 +239,6 @@ router.get('/admin/:id', authenticate, authorize('ADM', 'FUNC'), controller.getA
  *               description: { type: string }
  *               price: { type: number }
  *               costPrice: { type: number, description: 'Somente ADM' }
- *               stockQuantity: { type: integer }
  *               categoryId: { type: string, format: uuid }
  *               platformId: { type: string, format: uuid }
  *               baratosSociaisServiceId: { type: string }
@@ -288,7 +287,6 @@ router.post(
  *               description: { type: string }
  *               price: { type: number }
  *               costPrice: { type: number }
- *               stockQuantity: { type: integer }
  *               categoryId: { type: string, format: uuid }
  *               platformId: { type: string, format: uuid }
  *               profitMarginPercent: { type: number }

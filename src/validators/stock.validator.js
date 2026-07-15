@@ -19,4 +19,17 @@ const listStockItemsSchema = z.object({
   }),
 });
 
-module.exports = { addStockItemsSchema, listStockItemsSchema };
+const updateStockItemSchema = z.object({
+  body: z.object({
+    content: z.string().min(1),
+  }),
+});
+
+const notifyAccessUpdateSchema = z.object({
+  body: z.object({
+    content: z.string().min(1),
+    orderIds: z.array(z.string().uuid()).min(1).optional(),
+  }),
+});
+
+module.exports = { addStockItemsSchema, listStockItemsSchema, updateStockItemSchema, notifyAccessUpdateSchema };

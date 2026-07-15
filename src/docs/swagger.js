@@ -80,6 +80,11 @@ const options = {
             price: { type: 'number', format: 'decimal' },
             costPrice: { type: 'number', format: 'decimal', nullable: true, description: 'Somente ADM' },
             stockQuantity: { type: 'integer' },
+            accessDurationDays: {
+              type: 'integer',
+              nullable: true,
+              description: 'Dias que o acesso vendido permanece válido (ex: 30 para "1 mês"). Usado por /stock/products/{productId}/notify-access-update para decidir quem ainda está no prazo.',
+            },
             categoryId: { type: 'string', format: 'uuid' },
             platformId: { type: 'string', format: 'uuid' },
             category: { $ref: '#/components/schemas/Category' },
@@ -158,12 +163,27 @@ const options = {
         },
         StockItem: {
           type: 'object',
+          description: 'Uma vaga individual — GET /stock/products/{productId}.',
           properties: {
             id: { type: 'string', format: 'uuid' },
             isSold: { type: 'boolean' },
             soldToUserId: { type: 'string', format: 'uuid', nullable: true },
             soldAt: { type: 'string', format: 'date-time', nullable: true },
             createdAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        StockAccount: {
+          type: 'object',
+          description: 'Uma "conta" agrupada — GET /stock/products/{productId}/accounts retorna uma linha por content distinto, somando as vagas (StockItem rows) que compartilham aquela credencial.',
+          properties: {
+            id: { type: 'string', format: 'uuid', description: 'Vaga representante do grupo (uma disponível, se houver) — usar como itemId em PUT /stock/items/{itemId}.' },
+            content: { type: 'string', description: 'Credenciais/link da conta.' },
+            available: { type: 'integer', description: 'Vagas disponíveis com esta credencial.' },
+            sold: { type: 'integer', description: 'Vagas já vendidas com esta credencial.' },
+            createdAt: { type: 'string', format: 'date-time', description: 'Data da vaga mais antiga do grupo.' },
+            lastSoldAt: { type: 'string', format: 'date-time', nullable: true, description: 'Data da venda mais recente do grupo, se houver.' },
+            lastEditedAt: { type: 'string', format: 'date-time', description: 'Última vez que o content deste grupo foi alterado.' },
+            lastEditedByName: { type: 'string', nullable: true, description: 'Quem fez a última edição, se houver (null para contas nunca editadas após o cadastro).' },
           },
         },
         Order: {
@@ -187,6 +207,8 @@ const options = {
             targetUrl: { type: 'string', nullable: true },
             baratosSociaisOrderId: { type: 'string', nullable: true },
             deliveredContent: { type: 'string', nullable: true },
+            customerLastReadAt: { type: 'string', format: 'date-time', nullable: true },
+            staffLastReadAt: { type: 'string', format: 'date-time', nullable: true },
             createdAt: { type: 'string', format: 'date-time' },
           },
         },

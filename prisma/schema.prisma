@@ -64,10 +64,12 @@ model User {
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
-  orders         Order[]
-  soldStockItems StockItem[] @relation("StockSoldToUser")
-  createdCoupons Coupon[]    @relation("CouponCreatedBy")
-  reviews        Review[]
+  orders           Order[]
+  soldStockItems   StockItem[]       @relation("StockSoldToUser")
+  editedStockItems StockItem[]       @relation("StockItemLastEditedBy")
+  accessUpdateLogs AccessUpdateLog[]
+  createdCoupons   Coupon[]          @relation("CouponCreatedBy")
+  reviews          Review[]
 
   @@map("users")
 }
@@ -80,6 +82,10 @@ model Product {
   price                   Decimal  @db.Decimal(10, 2)
   costPrice               Decimal? @map("cost_price") @db.Decimal(10, 2)
   stockQuantity           Int      @default(0) @map("stock_quantity")
+  // Dias que o acesso vendido continua válido (ex: 30 para "1 mês") — usado para
+  // decidir quem ainda "está no prazo" ao notificar clientes de uma atualização
+  // de credenciais de conta compartilhada. Null = sem prazo definido (notifica todos).
+  accessDurationDays      Int?     @map("access_duration_days")
   categoryId              String   @map("category_id")
   platformId              String   @map("platform_id")
   baratosSociaisServiceId String?  @map("baratos_sociais_service_id")
@@ -88,11 +94,12 @@ model Product {
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
 
-  category   Category    @relation(fields: [categoryId], references: [id])
-  platform   Platform    @relation(fields: [platformId], references: [id])
-  stockItems StockItem[]
-  orders     Order[]
-  reviews    Review[]
+  category         Category          @relation(fields: [categoryId], references: [id])
+  platform         Platform          @relation(fields: [platformId], references: [id])
+  stockItems       StockItem[]
+  orders           Order[]
+  reviews          Review[]
+  accessUpdateLogs AccessUpdateLog[]
 
   @@map("products")
 }
@@ -122,18 +129,43 @@ model Platform {
 }
 
 model StockItem {
-  id           String    @id @default(uuid())
-  productId    String    @map("product_id")
-  content      String
-  isSold       Boolean   @default(false) @map("is_sold")
-  soldToUserId String?   @map("sold_to_user_id")
-  soldAt       DateTime? @map("sold_at")
-  createdAt    DateTime  @default(now()) @map("created_at")
+  id             String    @id @default(uuid())
+  productId      String    @map("product_id")
+  content        String
+  isSold         Boolean   @default(false) @map("is_sold")
+  soldToUserId   String?   @map("sold_to_user_id")
+  soldAt         DateTime? @map("sold_at")
+  // Pedido que consumiu esta vaga — sem isso não dá pra ligar "quem comprou"
+  // (soldToUserId) a um pedido específico quando o mesmo cliente compra o
+  // mesmo produto mais de uma vez.
+  orderId        String?   @map("order_id")
+  lastEditedById String?   @map("last_edited_by_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
 
-  product    Product @relation(fields: [productId], references: [id])
-  soldToUser User?   @relation("StockSoldToUser", fields: [soldToUserId], references: [id])
+  product      Product @relation(fields: [productId], references: [id])
+  soldToUser   User?   @relation("StockSoldToUser", fields: [soldToUserId], references: [id])
+  order        Order?  @relation(fields: [orderId], references: [id])
+  lastEditedBy User?   @relation("StockItemLastEditedBy", fields: [lastEditedById], references: [id])
 
   @@map("stock_items")
+}
+
+/**
+ * One row per broadcast of updated access credentials — "Enviado" is the only real status: chat messages are written synchronously to our own DB, so there's no external delivery/failure state to track (no email/WhatsApp provider integrated).
+ */
+model AccessUpdateLog {
+  id             String   @id @default(uuid())
+  productId      String   @map("product_id")
+  content        String
+  recipientCount Int      @map("recipient_count")
+  sentById       String   @map("sent_by_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id])
+  sentBy  User    @relation(fields: [sentById], references: [id])
+
+  @@map("access_update_logs")
 }
 
 model Order {
@@ -155,6 +187,8 @@ model Order {
   targetUrl               String?       @map("target_url")
   baratosSociaisOrderId   String?       @map("baratos_sociais_order_id")
   deliveredContent        String?       @map("delivered_content") @db.Text
+  customerLastReadAt      DateTime?     @map("customer_last_read_at")
+  staffLastReadAt         DateTime?     @map("staff_last_read_at")
   createdAt               DateTime      @default(now()) @map("created_at")
   updatedAt               DateTime      @updatedAt @map("updated_at")
 
@@ -162,6 +196,7 @@ model Order {
   product      Product       @relation(fields: [productId], references: [id])
   transactions Transaction[]
   chatMessages ChatMessage[]
+  stockItems   StockItem[]
 
   @@map("orders")
 }

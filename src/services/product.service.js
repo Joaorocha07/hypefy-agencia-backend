@@ -5,6 +5,16 @@ const storageService = require('./storage.service');
 const PRICE_FIELDS = ['price', 'costPrice', 'profitMarginPercent'];
 const FINANCIAL_FIELDS = ['costPrice', 'profitMarginPercent'];
 
+// stockQuantity is never client-writable — it's derived from real StockItem
+// rows (see stock.service.js#syncProductStockQuantity) so it can't drift from
+// what's actually in stock. Accepting it from a form field was the original
+// bug: an admin editing a product could silently overwrite the true count.
+function stripStockQuantity(data) {
+  const clean = { ...data };
+  delete clean.stockQuantity;
+  return clean;
+}
+
 const CATEGORY_PLATFORM_SELECT = {
   category: { select: { id: true, name: true } },
   platform: { select: { id: true, name: true, logoUrl: true, color: true } },
@@ -108,7 +118,7 @@ async function getProductByIdForRole(id, role) {
 }
 
 async function createProduct(role, data, file) {
-  const payload = stripPriceFieldsIfFunc(role, data);
+  const payload = stripStockQuantity(stripPriceFieldsIfFunc(role, data));
 
   let imageUrl;
   if (file) {
@@ -122,7 +132,10 @@ async function createProduct(role, data, file) {
       description: payload.description,
       price: payload.price ?? 0,
       costPrice: payload.costPrice,
-      stockQuantity: payload.stockQuantity ?? 0,
+      // Real stock is added via the Estoque screen (stock.service#addStockItems),
+      // which is what actually keeps this number correct.
+      stockQuantity: 0,
+      accessDurationDays: payload.accessDurationDays ?? null,
       categoryId: payload.categoryId,
       platformId: payload.platformId,
       baratosSociaisServiceId: payload.baratosSociaisServiceId,
@@ -137,7 +150,7 @@ async function createProduct(role, data, file) {
 
 async function updateProduct(role, id, data, file) {
   const product = await getProductById(id);
-  const payload = stripPriceFieldsIfFunc(role, data);
+  const payload = stripStockQuantity(stripPriceFieldsIfFunc(role, data));
 
   let imageUrl = product.imageUrl;
   if (file) {

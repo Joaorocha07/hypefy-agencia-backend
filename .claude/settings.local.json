@@ -51,7 +51,8 @@
       "PowerShell(Get-Command *)",
       "PowerShell(winget install *)",
       "Bash(curl *)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(grep -v \"SSL modes\\\\|next major\\\\|prepare for\\\\|current behavior\\\\|libpq compat\\\\|postgresql.org\\\\|trace-warnings\\\\|^$\")"
     ]
   }
 }
