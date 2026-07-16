@@ -132,6 +132,10 @@ model StockItem {
   id             String    @id @default(uuid())
   productId      String    @map("product_id")
   content        String
+  // Quantidade de vagas/telas que a conta compartilhada suporta (ex: 4 telas
+  // Netflix) — informativo, declarado pelo ADM/FUNC ao cadastrar/editar a
+  // conta, não é calculado a partir da contagem de StockItem em estoque.
+  quantidade     Int       @default(1)
   isSold         Boolean   @default(false) @map("is_sold")
   soldToUserId   String?   @map("sold_to_user_id")
   soldAt         DateTime? @map("sold_at")

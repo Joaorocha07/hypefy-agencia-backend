@@ -23,7 +23,12 @@ const overview = asyncHandler(async (req, res) => {
 });
 
 const updateItem = asyncHandler(async (req, res) => {
-  const result = await stockService.updateStockItemContent(req.params.itemId, req.body.content, req.user.id);
+  const result = await stockService.updateStockItemContent(
+    req.params.itemId,
+    req.body.content,
+    req.user.id,
+    req.body.quantidade
+  );
   success(res, result, 'Credenciais atualizadas com sucesso');
 });
 

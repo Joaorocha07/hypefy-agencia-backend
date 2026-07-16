@@ -9,6 +9,7 @@ const {
   updateProductSchema,
   listProductsSchema,
   setActiveSchema,
+  quoteSchema,
 } = require('../validators/product.validator');
 const { listReviewsSchema, upsertReviewSchema } = require('../validators/review.validator');
 
@@ -85,6 +86,53 @@ router.get('/', validate(listProductsSchema), controller.listPublic);
  *       404: { $ref: '#/components/responses/NotFound' }
  */
 router.get('/:id', controller.getOne);
+
+/**
+ * @swagger
+ * /products/{id}/quote:
+ *   get:
+ *     tags: [Products - Público]
+ *     summary: Cotação de preço para uma quantidade (produtos de engajamento — custo × margem em tempo real)
+ *     description: >
+ *       Para produtos que não são de engajamento, retorna simplesmente `price * quantity`.
+ *       Para engajamento, calcula com a taxa ao vivo da Baratos Sociais e a margem do produto —
+ *       o mesmo cálculo usado ao criar o pedido de verdade, então o valor mostrado aqui bate com
+ *       o que será cobrado. `totalPrice`/`unitPrice` são sempre calculados proporcionalmente
+ *       (a taxa é por 1000, então 1 unidade custa taxa/1000), mesmo se a quantidade estiver fora
+ *       do `min`/`max` do serviço — `valid: false` nesse caso só indica que o pedido não pode ser
+ *       fechado com essa quantidade, sem esconder o preço estimado.
+ *     security: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *       - in: query
+ *         name: quantity
+ *         required: true
+ *         schema: { type: integer, minimum: 1 }
+ *     responses:
+ *       200:
+ *         description: Cotação de preço
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/ApiResponse'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         unitPrice: { type: number, nullable: true }
+ *                         totalPrice: { type: number, nullable: true }
+ *                         min: { type: number, nullable: true }
+ *                         max: { type: number, nullable: true }
+ *                         valid: { type: boolean }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ *       503: { description: 'Serviço de engajamento indisponível no momento' }
+ */
+router.get('/:id/quote', validate(quoteSchema), controller.quote);
 
 /**
  * @swagger

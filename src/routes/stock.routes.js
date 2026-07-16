@@ -50,8 +50,16 @@ router.get('/overview', authorize('ADM'), controller.overview);
  *             properties:
  *               items:
  *                 type: array
- *                 items: { type: string }
- *                 example: ["email1@netflix.com:senha123", "email2@netflix.com:senha456"]
+ *                 description: 'Cada item pode ser uma string simples (content) ou um objeto { content, quantidade } — quantidade é o número de vagas/telas que a conta suporta (padrão 1).'
+ *                 items:
+ *                   oneOf:
+ *                     - type: string
+ *                     - type: object
+ *                       required: [content]
+ *                       properties:
+ *                         content: { type: string }
+ *                         quantidade: { type: integer, default: 1 }
+ *                 example: [{ "content": "Email: email1@netflix.com\nSenha: senha123", "quantidade": 4 }]
  *     responses:
  *       201:
  *         description: Itens adicionados; stockQuantity do produto incrementado
@@ -258,6 +266,7 @@ router.get('/products/:productId/notify-preview', controller.previewNotifyRecipi
  *             required: [content]
  *             properties:
  *               content: { type: string }
+ *               quantidade: { type: integer, description: 'Vagas/telas que a conta suporta — opcional, mantém o valor atual se omitido' }
  *     responses:
  *       200:
  *         description: Quantidade de vagas atualizadas e o novo conteúdo
@@ -270,7 +279,7 @@ router.get('/products/:productId/notify-preview', controller.previewNotifyRecipi
  *                   properties:
  *                     data:
  *                       type: object
- *                       properties: { updatedCount: { type: integer }, content: { type: string } }
+ *                       properties: { updatedCount: { type: integer }, content: { type: string }, quantidade: { type: integer } }
  *       404: { $ref: '#/components/responses/NotFound' }
  */
 router.put('/items/:itemId', validate(updateStockItemSchema), controller.updateItem);

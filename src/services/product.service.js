@@ -1,6 +1,7 @@
 const prisma = require('../config/db');
 const AppError = require('../utils/appError');
 const storageService = require('./storage.service');
+const engagementService = require('./engagement.service');
 
 const PRICE_FIELDS = ['price', 'costPrice', 'profitMarginPercent'];
 const FINANCIAL_FIELDS = ['costPrice', 'profitMarginPercent'];
@@ -106,6 +107,38 @@ async function getPublicProductById(id) {
   return product;
 }
 
+/**
+ * Public price preview for a given quantity — mirrors order.service#computePricing's
+ * formula so what the customer sees before paying matches what they're actually
+ * charged. `totalPrice`/`unitPrice` are always computed proportionally (rate is
+ * per 1000, so 1 unit is rate/1000 × margin, not the full 1000-unit price) —
+ * `valid` only says whether this quantity is inside the service's min/max and can
+ * actually be ordered; it never nulls out the price, so the storefront can keep
+ * showing an honest per-unit estimate while separately blocking checkout with the
+ * min/max guidance.
+ */
+async function getPublicQuote(id, quantity) {
+  const product = await prisma.product.findFirst({ where: { id, isActive: true }, include: { category: true } });
+  if (!product) throw new AppError('Produto não encontrado', 404);
+
+  if (product.category.name !== 'ENGAJAMENTO') {
+    return { unitPrice: Number(product.price), totalPrice: Number(product.price) * quantity, min: 1, max: null, valid: true };
+  }
+
+  const services = await engagementService.getExternalServices();
+  const external = Array.isArray(services)
+    ? services.find((s) => String(s.service) === String(product.baratosSociaisServiceId))
+    : null;
+  if (!external) throw new AppError('Serviço de engajamento indisponível no momento', 503);
+
+  const min = Number(external.min);
+  const max = Number(external.max);
+  const valid = quantity >= min && quantity <= max;
+  const totalPrice = engagementService.computeSellPrice(external.rate, quantity, product.profitMarginPercent);
+
+  return { unitPrice: totalPrice / quantity, totalPrice, min, max, valid };
+}
+
 async function getProductById(id) {
   const product = await prisma.product.findUnique({ where: { id }, include: CATEGORY_PLATFORM_SELECT });
   if (!product) throw new AppError('Produto não encontrado', 404);
@@ -195,6 +228,7 @@ module.exports = {
   listProducts,
   listPublicProducts,
   getPublicProductById,
+  getPublicQuote,
   getProductById,
   getProductByIdForRole,
   createProduct,

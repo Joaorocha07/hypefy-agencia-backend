@@ -12,6 +12,11 @@ const getOne = asyncHandler(async (req, res) => {
   success(res, product);
 });
 
+const quote = asyncHandler(async (req, res) => {
+  const result = await productService.getPublicQuote(req.params.id, req.query.quantity);
+  success(res, result);
+});
+
 const listAdmin = asyncHandler(async (req, res) => {
   const result = await productService.listProducts(req.query, req.user.role);
   success(res, result);
@@ -42,4 +47,4 @@ const remove = asyncHandler(async (req, res) => {
   success(res, null, 'Produto excluído com sucesso');
 });
 
-module.exports = { listPublic, getOne, listAdmin, getAdminOne, create, update, setActive, remove };
+module.exports = { listPublic, getOne, quote, listAdmin, getAdminOne, create, update, setActive, remove };

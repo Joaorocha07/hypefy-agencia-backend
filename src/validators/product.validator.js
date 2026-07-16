@@ -51,9 +51,16 @@ const setActiveSchema = z.object({
   }),
 });
 
+const quoteSchema = z.object({
+  query: z.object({
+    quantity: z.coerce.number().int().positive(),
+  }),
+});
+
 module.exports = {
   createProductSchema,
   updateProductSchema,
   listProductsSchema,
   setActiveSchema,
+  quoteSchema,
 };

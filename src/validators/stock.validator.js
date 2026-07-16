@@ -2,7 +2,17 @@ const { z } = require('zod');
 
 const addStockItemsSchema = z.object({
   body: z.object({
-    items: z.array(z.string().min(1)).min(1),
+    items: z
+      .array(
+        z.union([
+          z.string().min(1),
+          z.object({
+            content: z.string().min(1),
+            quantidade: z.coerce.number().int().positive().default(1),
+          }),
+        ])
+      )
+      .min(1),
   }),
 });
 
@@ -22,6 +32,7 @@ const listStockItemsSchema = z.object({
 const updateStockItemSchema = z.object({
   body: z.object({
     content: z.string().min(1),
+    quantidade: z.coerce.number().int().positive().optional(),
   }),
 });
 

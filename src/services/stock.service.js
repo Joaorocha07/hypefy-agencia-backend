@@ -18,7 +18,11 @@ async function addStockItems(productId, items) {
 
   return prisma.$transaction(async (tx) => {
     await tx.stockItem.createMany({
-      data: items.map((content) => ({ productId, content })),
+      data: items.map((item) =>
+        typeof item === 'string'
+          ? { productId, content: item }
+          : { productId, content: item.content, quantidade: item.quantidade }
+      ),
     });
 
     return syncProductStockQuantity(tx, productId);
@@ -71,6 +75,7 @@ async function listStockAccounts(productId, { isSold, page = 1, limit = 50 }) {
     if (!group) {
       group = {
         content: item.content,
+        quantidade: item.quantidade,
         availableId: null,
         anyId: item.id,
         available: 0,
@@ -98,6 +103,7 @@ async function listStockAccounts(productId, { isSold, page = 1, limit = 50 }) {
   let groupList = Array.from(groups.values()).map((g) => ({
     id: g.availableId ?? g.anyId,
     content: g.content,
+    quantidade: g.quantidade,
     available: g.available,
     sold: g.sold,
     createdAt: g.createdAt,
@@ -123,16 +129,16 @@ async function listStockAccounts(productId, { isSold, page = 1, limit = 50 }) {
  * represent the same underlying account, not independent items. Only the most
  * recent edit (who/when) is tracked, not a full history log.
  */
-async function updateStockItemContent(itemId, content, editedByUserId) {
+async function updateStockItemContent(itemId, content, editedByUserId, quantidade) {
   const item = await prisma.stockItem.findUnique({ where: { id: itemId } });
   if (!item) throw new AppError('Item de estoque não encontrado', 404);
 
   const result = await prisma.stockItem.updateMany({
     where: { productId: item.productId, content: item.content },
-    data: { content, lastEditedById: editedByUserId },
+    data: { content, lastEditedById: editedByUserId, ...(quantidade !== undefined && { quantidade }) },
   });
 
-  return { updatedCount: result.count, content };
+  return { updatedCount: result.count, content, quantidade: quantidade ?? item.quantidade };
 }
 
 /**
