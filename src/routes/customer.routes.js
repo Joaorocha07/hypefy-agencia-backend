@@ -55,4 +55,28 @@ router.get('/', validate(listCustomersSchema), controller.list);
  */
 router.get('/:id/orders', controller.getOrders);
 
+/**
+ * @swagger
+ * /customers/{id}/promote:
+ *   patch:
+ *     tags: [Customers]
+ *     summary: Promove um cliente (role USER) a funcionário (role FUNC) — ADM only
+ *     description: Reaproveita a conta existente do cliente (login, senha, histórico de pedidos) — só o role muda, não é criado um novo usuário.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Cliente promovido, agora com role FUNC
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ApiResponse' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ *       409: { description: 'Usuário já não é mais um cliente comum', content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+ */
+router.patch('/:id/promote', authorize('ADM'), controller.promote);
+
 module.exports = router;

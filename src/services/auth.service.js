@@ -174,6 +174,15 @@ async function updateProfile(userId, { name, email, phone, cpf }, file) {
     if (cpfDigits.length === 0) cpfDigits = null;
   }
 
+  let phoneValue = user.phone;
+  if (phone !== undefined) {
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (phoneDigits.length > 0 && phoneDigits.length < 10) {
+      throw new AppError('Telefone inválido', 422);
+    }
+    phoneValue = phoneDigits.length === 0 ? null : phone;
+  }
+
   let avatarUrl = user.avatarUrl;
   if (file) {
     const uploaded = await storageService.uploadImage(file, 'avatars');
@@ -183,7 +192,7 @@ async function updateProfile(userId, { name, email, phone, cpf }, file) {
 
   const updated = await prisma.user.update({
     where: { id: userId },
-    data: { name, email, phone, cpf: cpfDigits, avatarUrl },
+    data: { name, email, phone: phoneValue, cpf: cpfDigits, avatarUrl },
   });
 
   return toPublicUser(updated);

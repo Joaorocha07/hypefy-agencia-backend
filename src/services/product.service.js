@@ -29,6 +29,7 @@ const PUBLIC_SELECT = {
   price: true,
   stockQuantity: true,
   isActive: true,
+  isFeatured: true,
   createdAt: true,
   updatedAt: true,
   ...CATEGORY_PLATFORM_SELECT,
@@ -50,11 +51,15 @@ function hideFinancialFieldsIfFunc(role, product) {
   return clean;
 }
 
-async function listProducts({ categoryId, platformId, isActive, search, page = 1, limit = 20 }, role = 'ADM') {
+async function listProducts(
+  { categoryId, platformId, isActive, isFeatured, search, page = 1, limit = 20 },
+  role = 'ADM'
+) {
   const where = {
     ...(categoryId && { categoryId }),
     ...(platformId && { platformId }),
     ...(isActive !== undefined && { isActive }),
+    ...(isFeatured !== undefined && { isFeatured }),
     ...(search && { title: { contains: search, mode: 'insensitive' } }),
   };
 
@@ -91,7 +96,8 @@ async function listPublicProducts(filters) {
     prisma.product.findMany({
       where,
       select: PUBLIC_SELECT,
-      orderBy: { createdAt: 'desc' },
+      // Produtos em destaque (isFeatured, controlado pelo ADM/FUNC) sempre primeiro.
+      orderBy: [{ isFeatured: 'desc' }, { createdAt: 'desc' }],
       skip: (page - 1) * limit,
       take: limit,
     }),
@@ -173,6 +179,7 @@ async function createProduct(role, data, file) {
       platformId: payload.platformId,
       baratosSociaisServiceId: payload.baratosSociaisServiceId,
       profitMarginPercent: payload.profitMarginPercent ?? 0,
+      isFeatured: payload.isFeatured ?? false,
       imageUrl,
     },
     include: CATEGORY_PLATFORM_SELECT,
@@ -206,6 +213,11 @@ async function setActive(id, isActive) {
   return prisma.product.update({ where: { id }, data: { isActive }, include: CATEGORY_PLATFORM_SELECT });
 }
 
+async function setFeatured(id, isFeatured) {
+  await getProductById(id);
+  return prisma.product.update({ where: { id }, data: { isFeatured }, include: CATEGORY_PLATFORM_SELECT });
+}
+
 async function deleteProduct(id) {
   await getProductById(id);
 
@@ -234,5 +246,6 @@ module.exports = {
   createProduct,
   updateProduct,
   setActive,
+  setFeatured,
   deleteProduct,
 };

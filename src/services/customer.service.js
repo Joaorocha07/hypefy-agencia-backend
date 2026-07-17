@@ -50,4 +50,23 @@ async function getCustomerOrders(customerId) {
   return { customer, orders };
 }
 
-module.exports = { listCustomers, getCustomerOrders };
+// Reaproveita a conta existente (login/senha, histórico de pedidos) em vez de
+// criar um funcionário do zero — só muda o role, então o cliente vira FUNC sem
+// perder nada do que já tinha como usuário.
+async function promoteToEmployee(customerId) {
+  const customer = await prisma.user.findUnique({ where: { id: customerId } });
+  if (!customer) throw new AppError('Cliente não encontrado', 404);
+  if (customer.role !== 'USER') {
+    throw new AppError('Este usuário já não é mais um cliente comum', 409);
+  }
+
+  const promoted = await prisma.user.update({
+    where: { id: customerId },
+    data: { role: 'FUNC' },
+    select: { id: true, name: true, email: true, phone: true, role: true, isActive: true, createdAt: true },
+  });
+
+  return promoted;
+}
+
+module.exports = { listCustomers, getCustomerOrders, promoteToEmployee };

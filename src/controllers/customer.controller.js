@@ -12,4 +12,9 @@ const getOrders = asyncHandler(async (req, res) => {
   success(res, result);
 });
 
-module.exports = { list, getOrders };
+const promote = asyncHandler(async (req, res) => {
+  const employee = await customerService.promoteToEmployee(req.params.id);
+  success(res, employee, 'Cliente promovido a funcionário com sucesso');
+});
+
+module.exports = { list, getOrders, promote };

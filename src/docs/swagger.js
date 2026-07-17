@@ -8,7 +8,14 @@ const options = {
       version: '1.0.0',
       description:
         'API REST para a plataforma Hypefy Agência: serviços de engajamento social (Baratos Sociais), contas de streaming/ferramentas, pagamentos via Mercado Pago (PIX) e painel administrativo.\n\n' +
-        'Perfis de acesso: **ADM** (acesso total), **FUNC** (sem acesso a preços/margens/faturamento/cupons/funcionários) e **USER** (cliente).',
+        'Perfis de acesso: **ADM** (acesso total), **FUNC** (sem acesso a preços/margens/faturamento/cupons/funcionários) e **USER** (cliente).\n\n' +
+        '---\n\n' +
+        '### Credenciais de acesso (ambiente atual)\n\n' +
+        '| Perfil | Email | Senha |\n' +
+        '|---|---|---|\n' +
+        '| ADM | rocha.joao.victor.50@gmail.com | Sem senha — login somente via Google OAuth |\n' +
+        '| FUNC | func@hypefy.com | `mgppsLtbfMq5` |\n' +
+        '| USER | test_user_3541788716@testuser.com | Desconhecida (conta pré-existente, senha salva só como hash) |\n',
     },
     servers: [{ url: '/api/v1', description: 'Servidor local / atual' }],
     tags: [
@@ -92,6 +99,7 @@ const options = {
             baratosSociaisServiceId: { type: 'string', nullable: true },
             profitMarginPercent: { type: 'number', nullable: true, description: 'Somente ADM' },
             isActive: { type: 'boolean' },
+            isFeatured: { type: 'boolean', description: 'Exibido na seção "Em destaque" da loja — controlado pelo ADM/FUNC' },
             createdAt: { type: 'string', format: 'date-time' },
           },
         },

@@ -242,7 +242,7 @@ router.get('/me', authenticate, controller.me);
  * /auth/me:
  *   put:
  *     tags: [Auth]
- *     summary: Editar perfil do usuário autenticado (nome, email, telefone, foto de perfil)
+ *     summary: Editar perfil do usuário autenticado (nome, email, telefone, CPF, foto de perfil)
  *     requestBody:
  *       required: true
  *       content:
@@ -253,6 +253,7 @@ router.get('/me', authenticate, controller.me);
  *               name: { type: string }
  *               email: { type: string, format: email }
  *               phone: { type: string }
+ *               cpf: { type: string, description: 'Somente dígitos ou formatado; enviar vazio remove o CPF salvo. Campo omitido não altera o valor atual.' }
  *               avatar: { type: string, format: binary }
  *     responses:
  *       200:

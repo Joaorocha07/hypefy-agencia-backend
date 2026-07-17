@@ -5,6 +5,11 @@ const engagementService = require('./engagement.service');
 const paymentService = require('./payment.service');
 const { syncProductStockQuantity } = require('./stock.service');
 
+// Status da Orders API do Mercado Pago (não confundir com o status do Payment legado).
+// Compartilhado pelo webhook e pelo job de reconciliação (reconcilePendingPixOrders).
+const PAID_ORDER_STATUSES = ['processed'];
+const FAILED_ORDER_STATUSES = ['failed', 'canceled', 'expired'];
+
 function splitName(fullName) {
   const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return { firstName: undefined, lastName: undefined };
@@ -274,6 +279,57 @@ async function markOrderAsFailed(orderId) {
   });
 }
 
+// Rede de segurança para quando o webhook do Mercado Pago não chega (túnel ngrok caiu,
+// assinatura não bateu, notificação perdida etc.) — sem isso um pedido pago fica preso
+// em "aguardando pagamento" para sempre, já que nada mais consulta o status na Mercado Pago.
+async function reconcilePendingPixOrders() {
+  const pending = await prisma.order.findMany({
+    where: { paymentStatus: 'PENDING', mercadoPagoPaymentId: { not: null } },
+    select: { id: true, mercadoPagoPaymentId: true },
+  });
+
+  let reconciled = 0;
+  for (const order of pending) {
+    try {
+      const mpOrder = await paymentService.getOrder(order.mercadoPagoPaymentId);
+      if (PAID_ORDER_STATUSES.includes(mpOrder.status)) {
+        await markOrderAsPaid(order.id);
+        reconciled += 1;
+      } else if (FAILED_ORDER_STATUSES.includes(mpOrder.status)) {
+        await markOrderAsFailed(order.id);
+        reconciled += 1;
+      }
+    } catch (err) {
+      console.error(`[reconcilePendingPixOrders] erro ao consultar pedido ${order.id}:`, err.message);
+    }
+  }
+  return { checked: pending.length, reconciled };
+}
+
+// Pedidos que nunca receberam o PIX dentro do prazo não geraram estoque reservado,
+// transação ou entrega (tudo isso só é criado em markOrderAsPaid), então podem ser
+// removidos de vez — só chat_messages tem FK RESTRICT com orders, por isso o delete
+// explícito antes de apagar o pedido.
+const PAYMENT_TIMEOUT_MINUTES = 15;
+
+async function expireStalePendingOrders() {
+  const cutoff = new Date(Date.now() - PAYMENT_TIMEOUT_MINUTES * 60 * 1000);
+  const stale = await prisma.order.findMany({
+    where: { paymentStatus: 'PENDING', createdAt: { lt: cutoff } },
+    select: { id: true },
+  });
+  if (stale.length === 0) return { expired: 0 };
+
+  const ids = stale.map((o) => o.id);
+  const result = await prisma.$transaction([
+    prisma.chatMessage.deleteMany({ where: { orderId: { in: ids } } }),
+    // Reafirma paymentStatus: 'PENDING' — se o webhook confirmou o pagamento
+    // entre o findMany acima e aqui, o pedido não entra nesse delete.
+    prisma.order.deleteMany({ where: { id: { in: ids }, paymentStatus: 'PENDING' } }),
+  ]);
+  return { expired: result[1].count };
+}
+
 async function listUserOrders(userId, { page = 1, limit = 20 } = {}) {
   const where = { userId };
   const [items, total] = await Promise.all([
@@ -340,6 +396,11 @@ module.exports = {
   createOrder,
   markOrderAsPaid,
   markOrderAsFailed,
+  reconcilePendingPixOrders,
+  expireStalePendingOrders,
+  PAYMENT_TIMEOUT_MINUTES,
+  PAID_ORDER_STATUSES,
+  FAILED_ORDER_STATUSES,
   listUserOrders,
   getOrderForUser,
   listAllOrders,

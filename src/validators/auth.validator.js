@@ -46,7 +46,7 @@ const updateProfileSchema = z.object({
   body: z.object({
     name: z.string().min(2).optional(),
     email: z.string().email().optional(),
-    phone: z.string().min(8).optional(),
+    phone: z.string().optional(),
     cpf: z.string().optional(),
   }),
 });

@@ -128,17 +128,39 @@ async function listStockAccounts(productId, { isSold, page = 1, limit = 50 }) {
  * available) that currently has the same content as `itemId`, since they all
  * represent the same underlying account, not independent items. Only the most
  * recent edit (who/when) is tracked, not a full history log.
+ *
+ * `quantidade` doubles as the target row count for this account: each StockItem
+ * row is one sellable seat, so if it's raised above how many rows currently
+ * exist (e.g. an account that sold out and the admin wants one more seat
+ * available), the difference is created as new available rows instead of just
+ * being written as a cosmetic number — otherwise "esgotado" would stay wrong
+ * forever after every edit.
  */
 async function updateStockItemContent(itemId, content, editedByUserId, quantidade) {
   const item = await prisma.stockItem.findUnique({ where: { id: itemId } });
   if (!item) throw new AppError('Item de estoque não encontrado', 404);
 
-  const result = await prisma.stockItem.updateMany({
-    where: { productId: item.productId, content: item.content },
-    data: { content, lastEditedById: editedByUserId, ...(quantidade !== undefined && { quantidade }) },
-  });
+  return prisma.$transaction(async (tx) => {
+    const existingCount = await tx.stockItem.count({
+      where: { productId: item.productId, content: item.content },
+    });
 
-  return { updatedCount: result.count, content, quantidade: quantidade ?? item.quantidade };
+    const result = await tx.stockItem.updateMany({
+      where: { productId: item.productId, content: item.content },
+      data: { content, lastEditedById: editedByUserId, ...(quantidade !== undefined && { quantidade }) },
+    });
+
+    let addedCount = 0;
+    if (quantidade !== undefined && quantidade > existingCount) {
+      addedCount = quantidade - existingCount;
+      await tx.stockItem.createMany({
+        data: Array.from({ length: addedCount }, () => ({ productId: item.productId, content, quantidade })),
+      });
+      await syncProductStockQuantity(tx, item.productId);
+    }
+
+    return { updatedCount: result.count, addedCount, content, quantidade: quantidade ?? item.quantidade };
+  });
 }
 
 /**

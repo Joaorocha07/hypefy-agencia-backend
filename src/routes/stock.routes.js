@@ -70,7 +70,7 @@ router.get('/overview', authorize('ADM'), controller.overview);
  *   get:
  *     tags: [Stock]
  *     summary: Listar itens de estoque de um produto, um por vaga (sem expor o conteúdo/credenciais) — ADM/FUNC
- *     description: Raw, uma linha por StockItem/vaga — usado por telas que precisam do evento individual (ex: histórico de movimentação). Para a visão "uma linha por conta compartilhada", ver GET /stock/products/{productId}/accounts.
+ *     description: 'Raw, uma linha por StockItem/vaga — usado por telas que precisam do evento individual (ex: histórico de movimentação). Para a visão "uma linha por conta compartilhada", ver GET /stock/products/{productId}/accounts.'
  *     parameters:
  *       - in: path
  *         name: productId
@@ -135,7 +135,7 @@ router.get('/products/:productId/accounts', validate(listStockItemsSchema), cont
  * /stock/products/{productId}/notify-access-update:
  *   post:
  *     tags: [Stock]
- *     summary: Envia um acesso atualizado (ex: senha trocada de conta compartilhada) para os clientes ainda dentro do prazo do produto — ADM/FUNC
+ *     summary: 'Envia um acesso atualizado (ex: senha trocada de conta compartilhada) para os clientes ainda dentro do prazo do produto — ADM/FUNC'
  *     description: >
  *       Considera pedidos pagos deste produto criados nos últimos `accessDurationDays` dias
  *       (todos os pedidos pagos, se o produto não tiver prazo definido). Para cada um, posta uma
@@ -251,7 +251,7 @@ router.get('/products/:productId/notify-preview', controller.previewNotifyRecipi
  *   put:
  *     tags: [Stock]
  *     summary: Editar as credenciais de uma conta compartilhada — ADM/FUNC
- *     description: '`itemId` é uma vaga qualquer daquela conta (ver GET /stock/products/{productId}). Atualiza TODOS os StockItem (vendidos e disponíveis) que atualmente têm o mesmo content, já que representam a mesma conta.'
+ *     description: '`itemId` é uma vaga qualquer daquela conta (ver GET /stock/products/{productId}). Atualiza TODOS os StockItem (vendidos e disponíveis) que atualmente têm o mesmo content, já que representam a mesma conta. Se quantidade for maior que o total de vagas hoje (vendidas + disponíveis), a diferença é criada como novas vagas disponíveis — assim dá para repor uma conta esgotada sem recadastrar as credenciais.'
  *     parameters:
  *       - in: path
  *         name: itemId
@@ -266,10 +266,10 @@ router.get('/products/:productId/notify-preview', controller.previewNotifyRecipi
  *             required: [content]
  *             properties:
  *               content: { type: string }
- *               quantidade: { type: integer, description: 'Vagas/telas que a conta suporta — opcional, mantém o valor atual se omitido' }
+ *               quantidade: { type: integer, description: 'Total de vagas/telas que essa conta deve ter — opcional, mantém o valor atual se omitido. Se maior que o total de vagas existentes, as vagas que faltam são criadas como disponíveis.' }
  *     responses:
  *       200:
- *         description: Quantidade de vagas atualizadas e o novo conteúdo
+ *         description: Quantidade de vagas atualizadas, quantas foram criadas e o novo conteúdo
  *         content:
  *           application/json:
  *             schema:
@@ -279,7 +279,7 @@ router.get('/products/:productId/notify-preview', controller.previewNotifyRecipi
  *                   properties:
  *                     data:
  *                       type: object
- *                       properties: { updatedCount: { type: integer }, content: { type: string }, quantidade: { type: integer } }
+ *                       properties: { updatedCount: { type: integer }, addedCount: { type: integer }, content: { type: string }, quantidade: { type: integer } }
  *       404: { $ref: '#/components/responses/NotFound' }
  */
 router.put('/items/:itemId', validate(updateStockItemSchema), controller.updateItem);

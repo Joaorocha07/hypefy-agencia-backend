@@ -29,7 +29,11 @@ const updateItem = asyncHandler(async (req, res) => {
     req.user.id,
     req.body.quantidade
   );
-  success(res, result, 'Credenciais atualizadas com sucesso');
+  const message =
+    result.addedCount > 0
+      ? `Credenciais atualizadas e ${result.addedCount} vaga${result.addedCount === 1 ? '' : 's'} adicionada${result.addedCount === 1 ? '' : 's'} ao estoque`
+      : 'Credenciais atualizadas com sucesso';
+  success(res, result, message);
 });
 
 const getCustomers = asyncHandler(async (req, res) => {

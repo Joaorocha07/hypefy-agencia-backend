@@ -91,6 +91,9 @@ model Product {
   baratosSociaisServiceId String?  @map("baratos_sociais_service_id")
   profitMarginPercent     Decimal  @default(0) @map("profit_margin_percent") @db.Decimal(5, 2)
   isActive                Boolean  @default(true) @map("is_active")
+  // Controle manual do ADM/FUNC sobre a seção "Em destaque" da loja — não é
+  // derivado de vendas/estoque, é decidido explicitamente por quem gerencia o catálogo.
+  isFeatured              Boolean  @default(false) @map("is_featured")
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
 
@@ -133,8 +136,10 @@ model StockItem {
   productId      String    @map("product_id")
   content        String
   // Quantidade de vagas/telas que a conta compartilhada suporta (ex: 4 telas
-  // Netflix) — informativo, declarado pelo ADM/FUNC ao cadastrar/editar a
-  // conta, não é calculado a partir da contagem de StockItem em estoque.
+  // Netflix), replicado em todo StockItem dessa conta. Ao editar (PUT
+  // /stock/items/:id), se o valor enviado for maior que o total de linhas
+  // hoje, a diferença é criada como novas vagas disponíveis — repõe uma
+  // conta esgotada sem recadastrar as credenciais (ver stock.service.js).
   quantidade     Int       @default(1)
   isSold         Boolean   @default(false) @map("is_sold")
   soldToUserId   String?   @map("sold_to_user_id")

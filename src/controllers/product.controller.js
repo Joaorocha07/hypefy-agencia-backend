@@ -42,9 +42,14 @@ const setActive = asyncHandler(async (req, res) => {
   success(res, product, 'Status do produto atualizado');
 });
 
+const setFeatured = asyncHandler(async (req, res) => {
+  const product = await productService.setFeatured(req.params.id, req.body.isFeatured);
+  success(res, product, product.isFeatured ? 'Produto marcado como destaque' : 'Produto removido dos destaques');
+});
+
 const remove = asyncHandler(async (req, res) => {
   await productService.deleteProduct(req.params.id);
   success(res, null, 'Produto excluído com sucesso');
 });
 
-module.exports = { listPublic, getOne, quote, listAdmin, getAdminOne, create, update, setActive, remove };
+module.exports = { listPublic, getOne, quote, listAdmin, getAdminOne, create, update, setActive, setFeatured, remove };

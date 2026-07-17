@@ -9,6 +9,7 @@ const {
   updateProductSchema,
   listProductsSchema,
   setActiveSchema,
+  setFeaturedSchema,
   quoteSchema,
 } = require('../validators/product.validator');
 const { listReviewsSchema, upsertReviewSchema } = require('../validators/review.validator');
@@ -225,6 +226,9 @@ router.post('/:id/reviews', authenticate, validate(upsertReviewSchema), reviewCo
  *         name: isActive
  *         schema: { type: boolean }
  *       - in: query
+ *         name: isFeatured
+ *         schema: { type: boolean }
+ *       - in: query
  *         name: search
  *         schema: { type: string }
  *     responses:
@@ -291,6 +295,7 @@ router.get('/admin/:id', authenticate, authorize('ADM', 'FUNC'), controller.getA
  *               platformId: { type: string, format: uuid }
  *               baratosSociaisServiceId: { type: string }
  *               profitMarginPercent: { type: number, description: 'Somente ADM' }
+ *               isFeatured: { type: boolean, description: 'Exibir na seção "Em destaque" da loja' }
  *               image: { type: string, format: binary }
  *     responses:
  *       201:
@@ -339,6 +344,7 @@ router.post(
  *               platformId: { type: string, format: uuid }
  *               profitMarginPercent: { type: number }
  *               isActive: { type: boolean }
+ *               isFeatured: { type: boolean, description: 'Exibir na seção "Em destaque" da loja' }
  *               image: { type: string, format: binary }
  *     responses:
  *       200:
@@ -391,6 +397,42 @@ router.patch(
   authorize('ADM', 'FUNC'),
   validate(setActiveSchema),
   controller.setActive
+);
+
+/**
+ * @swagger
+ * /products/admin/{id}/featured:
+ *   patch:
+ *     tags: [Products - Admin]
+ *     summary: Marcar/desmarcar produto como destaque na loja (ADM/FUNC)
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [isFeatured]
+ *             properties:
+ *               isFeatured: { type: boolean }
+ *     responses:
+ *       200:
+ *         description: Destaque atualizado
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ApiResponse' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+router.patch(
+  '/admin/:id/featured',
+  authenticate,
+  authorize('ADM', 'FUNC'),
+  validate(setFeaturedSchema),
+  controller.setFeatured
 );
 
 /**

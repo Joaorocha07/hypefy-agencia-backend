@@ -16,6 +16,7 @@ const createProductSchema = z.object({
     baratosSociaisServiceId: z.string().optional(),
     profitMarginPercent: z.coerce.number().nonnegative().optional(),
     accessDurationDays: z.coerce.number().int().positive().optional(),
+    isFeatured: zBoolLike.optional(),
   }),
 });
 
@@ -31,6 +32,7 @@ const updateProductSchema = z.object({
     profitMarginPercent: z.coerce.number().nonnegative().optional(),
     accessDurationDays: z.coerce.number().int().positive().optional(),
     isActive: zBoolLike.optional(),
+    isFeatured: zBoolLike.optional(),
   }),
 });
 
@@ -39,6 +41,7 @@ const listProductsSchema = z.object({
     categoryId: z.string().uuid().optional(),
     platformId: z.string().uuid().optional(),
     isActive: zBoolLike.optional(),
+    isFeatured: zBoolLike.optional(),
     search: z.string().optional(),
     page: z.coerce.number().int().positive().optional(),
     limit: z.coerce.number().int().positive().max(100).optional(),
@@ -48,6 +51,12 @@ const listProductsSchema = z.object({
 const setActiveSchema = z.object({
   body: z.object({
     isActive: zBoolLike,
+  }),
+});
+
+const setFeaturedSchema = z.object({
+  body: z.object({
+    isFeatured: zBoolLike,
   }),
 });
 
@@ -62,5 +71,6 @@ module.exports = {
   updateProductSchema,
   listProductsSchema,
   setActiveSchema,
+  setFeaturedSchema,
   quoteSchema,
 };

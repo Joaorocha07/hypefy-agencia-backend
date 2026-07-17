@@ -1,11 +1,8 @@
 const asyncHandler = require('../utils/asyncHandler');
 const paymentService = require('../services/payment.service');
 const orderService = require('../services/order.service');
+const { PAID_ORDER_STATUSES, FAILED_ORDER_STATUSES } = orderService;
 const prisma = require('../config/db');
-
-// Status da Orders API (não confundir com o status do Payment legado).
-const PAID_ORDER_STATUSES = ['processed'];
-const FAILED_ORDER_STATUSES = ['failed', 'canceled', 'expired'];
 
 const handleMercadoPago = asyncHandler(async (req, res) => {
   // Responde 200 rapidamente pro MP não reenviar; qualquer erro de negócio é tratado/logado internamente.

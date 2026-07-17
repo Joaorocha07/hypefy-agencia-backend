@@ -52,7 +52,27 @@
       "PowerShell(winget install *)",
       "Bash(curl *)",
       "WebFetch(domain:github.com)",
-      "Bash(grep -v \"SSL modes\\\\|next major\\\\|prepare for\\\\|current behavior\\\\|libpq compat\\\\|postgresql.org\\\\|trace-warnings\\\\|^$\")"
+      "Bash(grep -v \"SSL modes\\\\|next major\\\\|prepare for\\\\|current behavior\\\\|libpq compat\\\\|postgresql.org\\\\|trace-warnings\\\\|^$\")",
+      "Read(//d/projetos//**)",
+      "Bash(powershell -Command \"Get-ChildItem D:\\\\projetos\")",
+      "Bash(npx eslint *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(echo \"LINT_EXIT:$?\")",
+      "Bash(echo \"TSC_EXIT:$?\")",
+      "Skill(run)",
+      "Bash(grep -o \"DATABASE_URL=.\\\\{0,40\\\\}\" \"D:\\\\projetos\\\\hypefy-agencia-backend\\\\.env\")",
+      "Bash(npx --yes playwright --version)",
+      "Bash(command -v chromium-cli)",
+      "Bash(npx --yes -p playwright node pw-check.js)",
+      "Bash(timeout 40 bash -c 'until curl -sf http://localhost:3001 >/dev/null; do sleep 1; done')",
+      "Bash(timeout 40 bash -c 'until curl -sf http://localhost:3000/api/v1 >/dev/null 2>&1 || curl -s http://localhost:3000 >/dev/null 2>&1; do sleep 1; done')",
+      "mcp__Neon__list_shared_projects",
+      "mcp__Neon__list_organizations",
+      "Bash(git check-ignore *)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(git -C /d/projetos/hypefy-agencia-backend status --short)",
+      "Bash(git -C /d/projetos/hypefy-agencia-frontend status --short)",
+      "Bash(git -C /d/projetos/hypefy-agencia-frontend diff -- components/admin/use-product-form.ts)"
     ]
   }
 }
