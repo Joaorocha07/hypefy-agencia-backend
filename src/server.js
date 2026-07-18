@@ -4,6 +4,7 @@ const app = require('./app');
 const { startSyncEngagementOrdersJob } = require('./jobs/syncEngagementOrders');
 const { startExpirePendingOrdersJob } = require('./jobs/expirePendingOrders');
 const { startReconcilePixOrdersJob } = require('./jobs/reconcilePixOrders');
+const { startPurgeFailedOrdersJob } = require('./jobs/purgeFailedOrders');
 
 const PORT = process.env.PORT || 3000;
 
@@ -14,4 +15,5 @@ app.listen(PORT, () => {
   startSyncEngagementOrdersJob();
   startReconcilePixOrdersJob();
   startExpirePendingOrdersJob();
+  startPurgeFailedOrdersJob();
 });

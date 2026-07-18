@@ -72,7 +72,8 @@
       "Bash(echo \"exit:$?\")",
       "Bash(git -C /d/projetos/hypefy-agencia-backend status --short)",
       "Bash(git -C /d/projetos/hypefy-agencia-frontend status --short)",
-      "Bash(git -C /d/projetos/hypefy-agencia-frontend diff -- components/admin/use-product-form.ts)"
+      "Bash(git -C /d/projetos/hypefy-agencia-frontend diff -- components/admin/use-product-form.ts)",
+      "PowerShell(Get-ChildItem \"D:\\\\projetos\\\\hypefy-agencia-backend\" -Force | Where-Object { $_.Name -notlike \"node_modules\" } | Select-Object Name, Attributes)"
     ]
   }
 }

@@ -88,6 +88,7 @@ router.get('/me', validate(listOrdersSchema), controller.myOrders);
  *       404: { $ref: '#/components/responses/NotFound' }
  */
 router.get('/me/:id', controller.myOrderDetail);
+router.get('/me/:id/engagement-status', controller.myEngagementStatus);
 
 /**
  * @swagger

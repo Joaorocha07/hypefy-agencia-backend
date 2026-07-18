@@ -102,6 +102,25 @@ async function syncProcessingOrders() {
         await prisma.order.update({ where: { id: order.id }, data: { orderStatus: mapped } });
         synced += 1;
       }
+
+      // Atualiza o chat message para refletir o status mais recente ao recarregar a página
+      const chatMsg = await prisma.chatMessage.findFirst({
+        where: { orderId: order.id, message: { startsWith: 'ENGAGEMENT_STATUS:' } },
+        select: { id: true, message: true },
+      });
+      if (chatMsg) {
+        try {
+          const payload = JSON.parse(chatMsg.message.slice('ENGAGEMENT_STATUS:'.length));
+          payload.charge = info.charge ?? payload.charge;
+          payload.startCount = info.start_count ?? payload.startCount;
+          payload.status = info.status ?? payload.status;
+          payload.remains = info.remains ?? payload.remains;
+          await prisma.chatMessage.update({
+            where: { id: chatMsg.id },
+            data: { message: `ENGAGEMENT_STATUS:${JSON.stringify(payload)}` },
+          });
+        } catch (_) {}
+      }
     }
   }
 
@@ -114,6 +133,10 @@ async function requestRefill(orderId) {
     throw new AppError('Pedido não possui ordem externa associada', 404);
   }
   return baratosSociais.requestRefill(order.baratosSociaisOrderId);
+}
+
+async function getExternalOrderStatus(baratosSociaisOrderId) {
+  return baratosSociais.getOrderStatus(baratosSociaisOrderId);
 }
 
 async function cancelExternalOrder(orderId) {
@@ -137,6 +160,7 @@ module.exports = {
   computeSellPrice,
   setProductMargin,
   createExternalOrder,
+  getExternalOrderStatus,
   syncProcessingOrders,
   requestRefill,
   cancelExternalOrder,

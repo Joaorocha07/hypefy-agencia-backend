@@ -109,8 +109,8 @@ async function createOrder(userId, data) {
       items: [
         {
           title: product.title,
-          quantity,
-          unitPrice,
+          quantity: 1,
+          unitPrice: totalPrice,
           categoryId: mercadoPagoCategoryId(product.category.name),
         },
       ],
@@ -243,12 +243,30 @@ async function markOrderAsPaid(orderId) {
 
   if (order.product.category.name === 'ENGAJAMENTO') {
     try {
-      await engagementService.createExternalOrder(order, order.product);
+      const updatedOrder = await engagementService.createExternalOrder(order, order.product);
+
+      let statusInfo = null;
+      try {
+        statusInfo = await engagementService.getExternalOrderStatus(updatedOrder.baratosSociaisOrderId);
+      } catch (_) {}
+
+      const payload = {
+        id: updatedOrder.baratosSociaisOrderId,
+        link: order.targetUrl || order.targetUsername,
+        quantity: order.quantity,
+        serviceId: order.product.baratosSociaisServiceId,
+        totalPrice: Number(order.totalPrice),
+        charge: statusInfo?.charge ?? null,
+        startCount: statusInfo?.start_count ?? null,
+        status: statusInfo?.status ?? 'Pending',
+        remains: statusInfo?.remains ?? String(order.quantity),
+      };
+
       await prisma.chatMessage.create({
         data: {
           orderId: order.id,
           sender: 'SYSTEM',
-          message: 'Pagamento confirmado! Seu pedido de engajamento foi enviado para processamento.',
+          message: `ENGAGEMENT_STATUS:${JSON.stringify(payload)}`,
           isDelivery: false,
         },
       });
@@ -312,6 +330,28 @@ async function reconcilePendingPixOrders() {
 // explícito antes de apagar o pedido.
 const PAYMENT_TIMEOUT_MINUTES = 15;
 
+const FAILED_ORDER_RETENTION_DAYS = 7;
+
+async function purgeOldFailedOrders() {
+  const cutoff = new Date(Date.now() - FAILED_ORDER_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  const stale = await prisma.order.findMany({
+    where: {
+      OR: [{ paymentStatus: 'FAILED' }, { orderStatus: 'CANCELLED' }],
+      createdAt: { lt: cutoff },
+    },
+    select: { id: true },
+  });
+  if (stale.length === 0) return { purged: 0 };
+
+  const ids = stale.map((o) => o.id);
+  const result = await prisma.$transaction([
+    prisma.chatMessage.deleteMany({ where: { orderId: { in: ids } } }),
+    prisma.transaction.deleteMany({ where: { orderId: { in: ids } } }),
+    prisma.order.deleteMany({ where: { id: { in: ids } } }),
+  ]);
+  return { purged: result[2].count };
+}
+
 async function expireStalePendingOrders() {
   const cutoff = new Date(Date.now() - PAYMENT_TIMEOUT_MINUTES * 60 * 1000);
   const stale = await prisma.order.findMany({
@@ -328,6 +368,38 @@ async function expireStalePendingOrders() {
     prisma.order.deleteMany({ where: { id: { in: ids }, paymentStatus: 'PENDING' } }),
   ]);
   return { expired: result[1].count };
+}
+
+async function getEngagementStatusForOrder(orderId, userId) {
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, userId },
+    select: { id: true, baratosSociaisOrderId: true },
+  });
+  if (!order) throw new AppError('Pedido não encontrado', 404);
+  if (!order.baratosSociaisOrderId) throw new AppError('Pedido não possui ordem de engajamento associada', 422);
+
+  const status = await engagementService.getExternalOrderStatus(order.baratosSociaisOrderId);
+
+  // Persiste o status atualizado no chat message para que recarregar a página mostre os dados corretos
+  const chatMsg = await prisma.chatMessage.findFirst({
+    where: { orderId: order.id, message: { startsWith: 'ENGAGEMENT_STATUS:' } },
+    select: { id: true, message: true },
+  });
+  if (chatMsg) {
+    try {
+      const payload = JSON.parse(chatMsg.message.slice('ENGAGEMENT_STATUS:'.length));
+      payload.charge = status.charge ?? payload.charge;
+      payload.startCount = status.start_count ?? payload.startCount;
+      payload.status = status.status ?? payload.status;
+      payload.remains = status.remains ?? payload.remains;
+      await prisma.chatMessage.update({
+        where: { id: chatMsg.id },
+        data: { message: `ENGAGEMENT_STATUS:${JSON.stringify(payload)}` },
+      });
+    } catch (_) {}
+  }
+
+  return status;
 }
 
 async function listUserOrders(userId, { page = 1, limit = 20 } = {}) {
@@ -398,11 +470,14 @@ module.exports = {
   markOrderAsFailed,
   reconcilePendingPixOrders,
   expireStalePendingOrders,
+  purgeOldFailedOrders,
   PAYMENT_TIMEOUT_MINUTES,
+  FAILED_ORDER_RETENTION_DAYS,
   PAID_ORDER_STATUSES,
   FAILED_ORDER_STATUSES,
   listUserOrders,
   getOrderForUser,
+  getEngagementStatusForOrder,
   listAllOrders,
   getOrderAdmin,
 };

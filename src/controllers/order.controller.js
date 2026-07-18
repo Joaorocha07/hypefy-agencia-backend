@@ -27,4 +27,9 @@ const getAdmin = asyncHandler(async (req, res) => {
   success(res, order);
 });
 
-module.exports = { create, myOrders, myOrderDetail, listAdmin, getAdmin };
+const myEngagementStatus = asyncHandler(async (req, res) => {
+  const status = await orderService.getEngagementStatusForOrder(req.params.id, req.user.id);
+  success(res, status);
+});
+
+module.exports = { create, myOrders, myOrderDetail, myEngagementStatus, listAdmin, getAdmin };
