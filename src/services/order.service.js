@@ -44,7 +44,8 @@ async function computePricing(product, quantity) {
 }
 
 async function createOrder(userId, data) {
-  const { productId, quantity, couponCode, targetUsername, targetUrl, deviceId } = data;
+  const { productId, couponCode, targetUsername, targetUrl, deviceId, customComments } = data;
+  let { quantity } = data;
 
   const product = await prisma.product.findUnique({ where: { id: productId }, include: { category: true } });
   if (!product || !product.isActive) throw new AppError('Produto não encontrado ou indisponível', 404);
@@ -54,6 +55,11 @@ async function createOrder(userId, data) {
   if (product.category.name === 'ENGAJAMENTO') {
     if (!targetUsername && !targetUrl) {
       throw new AppError('Informe o @usuário ou link do perfil/post alvo', 422);
+    }
+    if (product.acceptsCustomComments) {
+      const lines = (customComments || '').split('\n').map((l) => l.trim()).filter(Boolean);
+      if (lines.length === 0) throw new AppError('Informe pelo menos um comentário', 422);
+      quantity = lines.length;
     }
   } else {
     // Checked live against real StockItem rows, not the cached Product.stockQuantity
@@ -88,6 +94,7 @@ async function createOrder(userId, data) {
       couponCode: coupon ? coupon.code : null,
       targetUsername,
       targetUrl,
+      customComments: product.acceptsCustomComments ? (customComments || null) : null,
       paymentStatus: 'PENDING',
       orderStatus: 'PENDING',
     },
@@ -165,7 +172,9 @@ async function fulfillDigitalOrder(order, product) {
 
     await syncProductStockQuantity(tx, product.id);
 
-    const deliveredContent = stockItems.map((s) => s.content).join('\n---\n');
+    const deliveredContent = stockItems
+      .map((s) => (s.pin ? `${s.content}\nPIN: ${s.pin}` : s.content))
+      .join('\n---\n');
 
     await tx.chatMessage.create({
       data: {

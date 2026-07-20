@@ -23,8 +23,9 @@ async function safeCall(params) {
 module.exports = {
   getServices: () => safeCall({ action: 'services' }),
 
-  createOrder: ({ serviceId, link, quantity, runs, interval }) => {
+  createOrder: ({ serviceId, link, quantity, comments, runs, interval }) => {
     const params = { action: 'add', service: serviceId, link, quantity };
+    if (comments) params.comments = comments;
     if (runs) params.runs = runs;
     if (interval) params.interval = interval;
     return safeCall(params);

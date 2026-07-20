@@ -6,6 +6,7 @@ const {
   addStockItemsSchema,
   listStockItemsSchema,
   updateStockItemSchema,
+  updateScreenPinSchema,
   notifyAccessUpdateSchema,
 } = require('../validators/stock.validator');
 
@@ -283,6 +284,7 @@ router.get('/products/:productId/notify-preview', controller.previewNotifyRecipi
  *       404: { $ref: '#/components/responses/NotFound' }
  */
 router.put('/items/:itemId', validate(updateStockItemSchema), controller.updateItem);
+router.patch('/items/:itemId/pin', validate(updateScreenPinSchema), controller.updatePin);
 
 /**
  * @swagger

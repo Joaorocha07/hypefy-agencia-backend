@@ -51,6 +51,7 @@ async function createExternalOrder(order, product) {
     serviceId: product.baratosSociaisServiceId,
     link,
     quantity: order.quantity,
+    comments: order.customComments || undefined,
   });
 
   return prisma.order.update({

@@ -36,6 +36,11 @@ const updateItem = asyncHandler(async (req, res) => {
   success(res, result, message);
 });
 
+const updatePin = asyncHandler(async (req, res) => {
+  const result = await stockService.updateScreenPin(req.params.itemId, req.body.pin);
+  success(res, result, 'PIN atualizado com sucesso');
+});
+
 const getCustomers = asyncHandler(async (req, res) => {
   const customers = await stockService.getAccountCustomers(req.params.itemId);
   success(res, customers);
@@ -67,6 +72,7 @@ module.exports = {
   listAccounts,
   overview,
   updateItem,
+  updatePin,
   getCustomers,
   notifyAccessUpdate,
   previewNotifyRecipients,

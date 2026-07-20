@@ -94,6 +94,16 @@ model Product {
   // Controle manual do ADM/FUNC sobre a seção "Em destaque" da loja — não é
   // derivado de vendas/estoque, é decidido explicitamente por quem gerencia o catálogo.
   isFeatured              Boolean  @default(false) @map("is_featured")
+  // Quando true, as credenciais são entregues automaticamente mas o acesso
+  // exige um código gerado pelo sistema — o cliente solicita via chat.
+  // O atendimento para envio do código funciona seg–sex 8h–17h e sáb 8h–14h.
+  isManualDelivery        Boolean  @default(false) @map("is_manual_delivery")
+  // Quando true, cada seat é uma tela individual com PIN próprio (ex: Netflix).
+  // Quando false, a conta não usa telas — apenas email/senha sem PIN (ex: ChatGPT).
+  hasScreens              Boolean  @default(true) @map("has_screens")
+  // Quando true (apenas para ENGAJAMENTO), o comprador digita os comentários linha
+  // a linha — cada linha = 1 unidade. A quantidade é derivada da contagem de linhas.
+  acceptsCustomComments   Boolean  @default(false) @map("accepts_custom_comments")
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
 
@@ -148,6 +158,7 @@ model StockItem {
   // (soldToUserId) a um pedido específico quando o mesmo cliente compra o
   // mesmo produto mais de uma vez.
   orderId        String?   @map("order_id")
+  pin            String?   @map("pin")
   lastEditedById String?   @map("last_edited_by_id")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
@@ -194,6 +205,7 @@ model Order {
   orderStatus             OrderStatus   @default(PENDING) @map("order_status")
   targetUsername          String?       @map("target_username")
   targetUrl               String?       @map("target_url")
+  customComments          String?       @map("custom_comments") @db.Text
   baratosSociaisOrderId   String?       @map("baratos_sociais_order_id")
   deliveredContent        String?       @map("delivered_content") @db.Text
   customerLastReadAt      DateTime?     @map("customer_last_read_at")

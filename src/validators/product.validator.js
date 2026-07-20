@@ -17,6 +17,8 @@ const createProductSchema = z.object({
     profitMarginPercent: z.coerce.number().nonnegative().optional(),
     accessDurationDays: z.coerce.number().int().positive().optional(),
     isFeatured: zBoolLike.optional(),
+    isManualDelivery: zBoolLike.optional(),
+    hasScreens: zBoolLike.optional(),
   }),
 });
 
@@ -33,6 +35,8 @@ const updateProductSchema = z.object({
     accessDurationDays: z.coerce.number().int().positive().optional(),
     isActive: zBoolLike.optional(),
     isFeatured: zBoolLike.optional(),
+    isManualDelivery: zBoolLike.optional(),
+    hasScreens: zBoolLike.optional(),
   }),
 });
 

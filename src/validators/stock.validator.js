@@ -9,6 +9,7 @@ const addStockItemsSchema = z.object({
           z.object({
             content: z.string().min(1),
             quantidade: z.coerce.number().int().positive().default(1),
+            pin: z.string().optional(),
           }),
         ])
       )
@@ -43,4 +44,10 @@ const notifyAccessUpdateSchema = z.object({
   }),
 });
 
-module.exports = { addStockItemsSchema, listStockItemsSchema, updateStockItemSchema, notifyAccessUpdateSchema };
+const updateScreenPinSchema = z.object({
+  body: z.object({
+    pin: z.string().nullable().optional(),
+  }),
+});
+
+module.exports = { addStockItemsSchema, listStockItemsSchema, updateStockItemSchema, updateScreenPinSchema, notifyAccessUpdateSchema };

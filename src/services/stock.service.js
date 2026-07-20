@@ -21,7 +21,7 @@ async function addStockItems(productId, items) {
       data: items.map((item) =>
         typeof item === 'string'
           ? { productId, content: item }
-          : { productId, content: item.content, quantidade: item.quantidade }
+          : { productId, content: item.content, quantidade: item.quantidade, pin: item.pin ?? null }
       ),
     });
 
@@ -84,6 +84,7 @@ async function listStockAccounts(productId, { isSold, page = 1, limit = 50 }) {
         lastSoldAt: null,
         lastEditedAt: item.updatedAt,
         lastEditedByName: item.lastEditedBy ? item.lastEditedBy.name || item.lastEditedBy.email : null,
+        screenPins: [],
       };
       groups.set(item.content, group);
     }
@@ -98,6 +99,7 @@ async function listStockAccounts(productId, { isSold, page = 1, limit = 50 }) {
       group.lastEditedAt = item.updatedAt;
       group.lastEditedByName = item.lastEditedBy ? item.lastEditedBy.name || item.lastEditedBy.email : null;
     }
+    group.screenPins.push({ id: item.id, pin: item.pin ?? null, isSold: item.isSold });
   }
 
   let groupList = Array.from(groups.values()).map((g) => ({
@@ -110,6 +112,7 @@ async function listStockAccounts(productId, { isSold, page = 1, limit = 50 }) {
     lastSoldAt: g.lastSoldAt,
     lastEditedAt: g.lastEditedAt,
     lastEditedByName: g.lastEditedByName,
+    screenPins: g.screenPins,
   }));
 
   if (isSold !== undefined) {
@@ -168,6 +171,16 @@ async function updateStockItemContent(itemId, content, editedByUserId, quantidad
  * sharing itemId's content), with their order + contact details — so staff
  * can see exactly who to reach out to, open their chat, or notify individually.
  */
+async function updateScreenPin(itemId, pin) {
+  const item = await prisma.stockItem.findUnique({ where: { id: itemId } });
+  if (!item) throw new AppError('Item de estoque não encontrado', 404);
+  return prisma.stockItem.update({
+    where: { id: itemId },
+    data: { pin: pin ?? null },
+    select: { id: true, pin: true },
+  });
+}
+
 async function getAccountCustomers(itemId) {
   const anchor = await prisma.stockItem.findUnique({ where: { id: itemId } });
   if (!anchor) throw new AppError('Item de estoque não encontrado', 404);
@@ -364,6 +377,7 @@ module.exports = {
   getStockOverview,
   syncProductStockQuantity,
   updateStockItemContent,
+  updateScreenPin,
   getAccountCustomers,
   notifyAccessUpdate,
   previewAccessUpdateRecipients,
