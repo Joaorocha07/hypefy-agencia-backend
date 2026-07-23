@@ -8,6 +8,7 @@ const {
   registerSchema,
   loginSchema,
   refreshSchema,
+  logoutSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
   changePasswordSchema,
@@ -138,6 +139,29 @@ router.post('/google', authRateLimiter, validate(googleLoginSchema), controller.
  *       401: { $ref: '#/components/responses/Unauthorized' }
  */
 router.post('/refresh', authRateLimiter, validate(refreshSchema), controller.refresh);
+
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Revogar o refresh token atual (encerra a sessão neste dispositivo)
+ *     security: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               refreshToken: { type: string }
+ *     responses:
+ *       200:
+ *         description: Logout realizado com sucesso
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ApiResponse' }
+ */
+router.post('/logout', authRateLimiter, validate(logoutSchema), controller.logout);
 
 /**
  * @swagger

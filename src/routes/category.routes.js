@@ -2,7 +2,7 @@ const { Router } = require('express');
 const controller = require('../controllers/category.controller');
 const validate = require('../middlewares/validate');
 const { authenticate, authorize } = require('../middlewares/auth');
-const { createCategorySchema, updateCategorySchema } = require('../validators/category.validator');
+const { createCategorySchema, updateCategorySchema, reorderCategoriesSchema } = require('../validators/category.validator');
 
 const router = Router();
 
@@ -41,6 +41,37 @@ const router = Router();
  */
 router.get('/', controller.list);
 router.post('/', authenticate, authorize('ADM', 'FUNC'), validate(createCategorySchema), controller.create);
+
+/**
+ * @swagger
+ * /categories/reorder:
+ *   patch:
+ *     tags: [Categories]
+ *     summary: Reordenar seções de categoria na loja — ADM/FUNC
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [items]
+ *             properties:
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required: [id, order]
+ *                   properties:
+ *                     id: { type: string, format: uuid }
+ *                     order: { type: integer, minimum: 0 }
+ *     responses:
+ *       200:
+ *         description: Lista de categorias na nova ordem
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ApiResponse' }
+ */
+router.patch('/reorder', authenticate, authorize('ADM', 'FUNC'), validate(reorderCategoriesSchema), controller.reorder);
 
 /**
  * @swagger

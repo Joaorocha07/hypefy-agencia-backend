@@ -6,7 +6,7 @@ const listServices = asyncHandler(async (req, res) => {
   const services = await engagementService.getExternalServices({
     forceRefresh: req.query.refresh === 'true',
   });
-  success(res, services);
+  success(res, engagementService.hideRateIfFunc(req.user.role, services));
 });
 
 const balance = asyncHandler(async (req, res) => {

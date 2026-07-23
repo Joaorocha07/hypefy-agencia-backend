@@ -38,12 +38,12 @@ const update = asyncHandler(async (req, res) => {
 });
 
 const setActive = asyncHandler(async (req, res) => {
-  const product = await productService.setActive(req.params.id, req.body.isActive);
+  const product = await productService.setActive(req.user.role, req.params.id, req.body.isActive);
   success(res, product, 'Status do produto atualizado');
 });
 
 const setFeatured = asyncHandler(async (req, res) => {
-  const product = await productService.setFeatured(req.params.id, req.body.isFeatured);
+  const product = await productService.setFeatured(req.user.role, req.params.id, req.body.isFeatured);
   success(res, product, product.isFeatured ? 'Produto marcado como destaque' : 'Produto removido dos destaques');
 });
 

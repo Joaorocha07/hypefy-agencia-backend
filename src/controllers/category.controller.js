@@ -22,4 +22,9 @@ const remove = asyncHandler(async (req, res) => {
   success(res, null, 'Categoria removida com sucesso');
 });
 
-module.exports = { list, create, update, remove };
+const reorder = asyncHandler(async (req, res) => {
+  const categories = await categoryService.reorderCategories(req.body.items);
+  success(res, categories, 'Ordem das categorias atualizada com sucesso');
+});
+
+module.exports = { list, create, update, remove, reorder };

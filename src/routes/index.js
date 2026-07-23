@@ -14,6 +14,7 @@ const employeeRoutes = require('./employee.routes');
 const dashboardRoutes = require('./dashboard.routes');
 const webhookRoutes = require('./webhook.routes');
 const reviewRoutes = require('./review.routes');
+const lgpdRoutes = require('./lgpd.routes');
 
 const router = Router();
 
@@ -31,5 +32,6 @@ router.use('/employees', employeeRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/webhooks', webhookRoutes);
 router.use('/reviews', reviewRoutes);
+router.use('/lgpd', lgpdRoutes);
 
 module.exports = router;

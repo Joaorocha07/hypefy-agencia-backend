@@ -20,6 +20,15 @@ async function getBalance() {
   return baratosSociais.getBalance();
 }
 
+// `rate` é o custo cobrado pelo fornecedor por 1000 unidades — a mesma base
+// usada em computeSellPrice para calcular a margem de lucro. FUNC não deve
+// ver custo/margem (mesma política aplicada a costPrice/profitMarginPercent
+// em product.service.js), então esse campo é removido da resposta.
+function hideRateIfFunc(role, services) {
+  if (role !== 'FUNC' || !Array.isArray(services)) return services;
+  return services.map(({ rate, ...rest }) => rest);
+}
+
 // preco_venda = rate * (quantidade / 1000) * (1 + margem / 100)
 function computeSellPrice(rate, quantity, profitMarginPercent) {
   const base = Number(rate) * (Number(quantity) / 1000);
@@ -158,6 +167,7 @@ async function cancelExternalOrder(orderId) {
 module.exports = {
   getExternalServices,
   getBalance,
+  hideRateIfFunc,
   computeSellPrice,
   setProductMargin,
   createExternalOrder,

@@ -214,14 +214,16 @@ async function updateProduct(role, id, data, file) {
   return hideFinancialFieldsIfFunc(role, updated);
 }
 
-async function setActive(id, isActive) {
+async function setActive(role, id, isActive) {
   await getProductById(id);
-  return prisma.product.update({ where: { id }, data: { isActive }, include: CATEGORY_PLATFORM_SELECT });
+  const updated = await prisma.product.update({ where: { id }, data: { isActive }, include: CATEGORY_PLATFORM_SELECT });
+  return hideFinancialFieldsIfFunc(role, updated);
 }
 
-async function setFeatured(id, isFeatured) {
+async function setFeatured(role, id, isFeatured) {
   await getProductById(id);
-  return prisma.product.update({ where: { id }, data: { isFeatured }, include: CATEGORY_PLATFORM_SELECT });
+  const updated = await prisma.product.update({ where: { id }, data: { isFeatured }, include: CATEGORY_PLATFORM_SELECT });
+  return hideFinancialFieldsIfFunc(role, updated);
 }
 
 async function deleteProduct(id) {

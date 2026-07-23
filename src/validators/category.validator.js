@@ -12,4 +12,17 @@ const updateCategorySchema = z.object({
   }),
 });
 
-module.exports = { createCategorySchema, updateCategorySchema };
+const reorderCategoriesSchema = z.object({
+  body: z.object({
+    items: z
+      .array(
+        z.object({
+          id: z.string().uuid(),
+          order: z.number().int().min(0),
+        })
+      )
+      .min(1),
+  }),
+});
+
+module.exports = { createCategorySchema, updateCategorySchema, reorderCategoriesSchema };

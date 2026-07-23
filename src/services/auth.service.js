@@ -5,18 +5,30 @@ const { signAccessToken, signRefreshToken, verifyRefreshToken } = require('../ut
 const { sendMail } = require('../config/mailer');
 const storageService = require('./storage.service');
 const googleClient = require('../config/google');
+const refreshTokenService = require('./refreshToken.service');
+
+// Hash bcrypt fixo (não corresponde a nenhuma senha real) usado só para gastar
+// o mesmo tempo de CPU que um bcrypt.compare real quando o usuário não existe
+// ou não tem senha local — sem isso, a ausência dessa chamada torna a resposta
+// perceptivelmente mais rápida e permite inferir quais emails têm conta.
+const DUMMY_PASSWORD_HASH = '$2b$12$YklG3Lq5DaZtC/wxz3UXLOQIfZctk6Ie8zgTpio86JAc7ESWx10QO';
+
+const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+const LOGIN_LOCK_DURATION_MS = 15 * 60 * 1000;
 
 function toPublicUser(user) {
-  const { passwordHash, passwordResetToken, passwordResetExpires, googleId, ...publicUser } = user;
+  const { passwordHash, passwordResetToken, passwordResetExpires, googleId, failedLoginAttempts, lockedUntil, ...publicUser } = user;
   return publicUser;
 }
 
-function issueTokens(user) {
+async function issueTokens(user) {
   const payload = { sub: user.id, role: user.role };
-  return {
-    accessToken: signAccessToken(payload),
-    refreshToken: signRefreshToken(payload),
-  };
+  const accessToken = signAccessToken(payload);
+  const refreshToken = signRefreshToken(payload);
+
+  await refreshTokenService.store(user.id, refreshToken);
+
+  return { accessToken, refreshToken };
 }
 
 async function register({ email, password, name, phone }) {
@@ -28,17 +40,44 @@ async function register({ email, password, name, phone }) {
     data: { email, passwordHash, name, phone, role: 'USER' },
   });
 
-  return { user: toPublicUser(user), ...issueTokens(user) };
+  return { user: toPublicUser(user), ...(await issueTokens(user)) };
 }
 
 async function login({ email, password }) {
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || !user.passwordHash || !(await comparePassword(password, user.passwordHash))) {
+
+  if (user?.lockedUntil && user.lockedUntil > new Date()) {
+    throw new AppError('Conta temporariamente bloqueada por muitas tentativas de login. Tente novamente mais tarde.', 429);
+  }
+
+  const hashToCompare = user?.passwordHash || DUMMY_PASSWORD_HASH;
+  const passwordMatches = await comparePassword(password, hashToCompare);
+
+  if (!user || !user.passwordHash || !passwordMatches) {
+    if (user) await registerFailedLoginAttempt(user);
     throw new AppError('Email ou senha inválidos', 401);
   }
+
   if (!user.isActive) throw new AppError('Usuário inativo', 403);
 
-  return { user: toPublicUser(user), ...issueTokens(user) };
+  if (user.failedLoginAttempts > 0 || user.lockedUntil) {
+    await prisma.user.update({ where: { id: user.id }, data: { failedLoginAttempts: 0, lockedUntil: null } });
+  }
+
+  return { user: toPublicUser(user), ...(await issueTokens(user)) };
+}
+
+async function registerFailedLoginAttempt(user) {
+  const attempts = user.failedLoginAttempts + 1;
+  const shouldLock = attempts >= MAX_FAILED_LOGIN_ATTEMPTS;
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      failedLoginAttempts: shouldLock ? 0 : attempts,
+      lockedUntil: shouldLock ? new Date(Date.now() + LOGIN_LOCK_DURATION_MS) : null,
+    },
+  });
 }
 
 async function loginWithGoogle(idToken) {
@@ -87,7 +126,7 @@ async function loginWithGoogle(idToken) {
 
   if (!user.isActive) throw new AppError('Usuário inativo', 403);
 
-  return { user: toPublicUser(user), ...issueTokens(user) };
+  return { user: toPublicUser(user), ...(await issueTokens(user)) };
 }
 
 async function refresh(refreshToken) {
@@ -98,10 +137,28 @@ async function refresh(refreshToken) {
     throw new AppError('Refresh token inválido ou expirado', 401);
   }
 
+  const stored = await refreshTokenService.findActiveByToken(refreshToken);
+  if (!stored || stored.userId !== payload.sub) {
+    throw new AppError('Refresh token inválido ou expirado', 401);
+  }
+
+  if (stored.revokedAt) {
+    // Reuso de um refresh token já rotacionado — sinal de possível roubo do
+    // token: revoga todas as sessões desse usuário por precaução.
+    await refreshTokenService.revokeAllForUser(stored.userId);
+    throw new AppError('Refresh token inválido ou expirado', 401);
+  }
+
   const user = await prisma.user.findUnique({ where: { id: payload.sub } });
   if (!user || !user.isActive) throw new AppError('Usuário inválido ou inativo', 401);
 
+  await refreshTokenService.revoke(stored.id);
   return issueTokens(user);
+}
+
+async function logout(refreshToken) {
+  if (!refreshToken) return;
+  await refreshTokenService.revokeByToken(refreshToken);
 }
 
 async function forgotPassword(email) {
@@ -144,6 +201,10 @@ async function resetPassword({ token, newPassword }) {
     where: { id: user.id },
     data: { passwordHash, passwordResetToken: null, passwordResetExpires: null },
   });
+
+  // Uma troca de senha (própria vontade ou recuperação) deve derrubar
+  // qualquer sessão existente — inclusive a de quem roubou a senha antiga.
+  await refreshTokenService.revokeAllForUser(user.id);
 }
 
 async function changePassword(userId, { currentPassword, newPassword }) {
@@ -154,6 +215,7 @@ async function changePassword(userId, { currentPassword, newPassword }) {
 
   const passwordHash = await hashPassword(newPassword);
   await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+  await refreshTokenService.revokeAllForUser(userId);
 }
 
 async function updateProfile(userId, { name, email, phone, cpf }, file) {
@@ -204,6 +266,7 @@ module.exports = {
   login,
   loginWithGoogle,
   refresh,
+  logout,
   forgotPassword,
   resetPassword,
   changePassword,

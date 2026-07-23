@@ -127,7 +127,13 @@ async function createOrder(userId, data) {
       where: { id: order.id },
       data: { paymentStatus: 'FAILED', orderStatus: 'CANCELLED' },
     });
-    console.error('Falha ao criar pagamento PIX no Mercado Pago:', JSON.stringify(err.errors ?? err, null, 2));
+    // Loga só a mensagem/erros estruturados do SDK, nunca o objeto de erro
+    // completo — ele pode ecoar o payload enviado (email/CPF do comprador).
+    console.error('Falha ao criar pagamento PIX no Mercado Pago:', {
+      orderId: order.id,
+      message: err.message,
+      errors: err.errors,
+    });
     throw new AppError('Não foi possível gerar o pagamento PIX no momento. Tente novamente em instantes.', 502);
   }
 
@@ -411,16 +417,41 @@ async function getEngagementStatusForOrder(orderId, userId) {
   return status;
 }
 
+// Listagens não precisam do QR code do PIX (só é exibido no detalhe de um
+// pedido pendente específico) — omitir esses dois campos evita mandar um
+// base64 de imagem por pedido em toda página do histórico do cliente.
+const CUSTOMER_ORDER_LIST_SELECT = {
+  id: true,
+  userId: true,
+  productId: true,
+  quantity: true,
+  unitPrice: true,
+  totalPrice: true,
+  discountAmount: true,
+  couponCode: true,
+  paymentMethod: true,
+  paymentStatus: true,
+  mercadoPagoPaymentId: true,
+  orderStatus: true,
+  targetUsername: true,
+  targetUrl: true,
+  baratosSociaisOrderId: true,
+  deliveredContent: true,
+  customerLastReadAt: true,
+  staffLastReadAt: true,
+  createdAt: true,
+  updatedAt: true,
+  product: {
+    select: { id: true, title: true, imageUrl: true, category: true, platform: true },
+  },
+};
+
 async function listUserOrders(userId, { page = 1, limit = 20 } = {}) {
   const where = { userId };
   const [items, total] = await Promise.all([
     prisma.order.findMany({
       where,
-      include: {
-        product: {
-          select: { id: true, title: true, imageUrl: true, category: true, platform: true },
-        },
-      },
+      select: CUSTOMER_ORDER_LIST_SELECT,
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,
@@ -439,6 +470,34 @@ async function getOrderForUser(orderId, userId) {
   return order;
 }
 
+// A listagem admin não renderiza QR code do PIX nem o conteúdo entregue (só o
+// detalhe de um pedido específico faz isso, em getOrderAdmin) — evita expor
+// credenciais entregues a clientes em massa (paginação/exportação CSV) para
+// quem só precisa da visão geral de pedidos.
+const ADMIN_ORDER_LIST_SELECT = {
+  id: true,
+  userId: true,
+  productId: true,
+  quantity: true,
+  unitPrice: true,
+  totalPrice: true,
+  discountAmount: true,
+  couponCode: true,
+  paymentMethod: true,
+  paymentStatus: true,
+  mercadoPagoPaymentId: true,
+  orderStatus: true,
+  targetUsername: true,
+  targetUrl: true,
+  baratosSociaisOrderId: true,
+  customerLastReadAt: true,
+  staffLastReadAt: true,
+  createdAt: true,
+  updatedAt: true,
+  product: { select: { id: true, title: true, category: true, platform: true } },
+  user: { select: { id: true, name: true, email: true } },
+};
+
 async function listAllOrders({ paymentStatus, orderStatus, page = 1, limit = 20 } = {}) {
   const where = {
     ...(paymentStatus && { paymentStatus }),
@@ -448,10 +507,7 @@ async function listAllOrders({ paymentStatus, orderStatus, page = 1, limit = 20 
   const [items, total] = await Promise.all([
     prisma.order.findMany({
       where,
-      include: {
-        product: { select: { id: true, title: true, category: true, platform: true } },
-        user: { select: { id: true, name: true, email: true } },
-      },
+      select: ADMIN_ORDER_LIST_SELECT,
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
       take: limit,

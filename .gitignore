@@ -6,3 +6,6 @@ build/
 *.log
 .DS_Store
 coverage/
+
+# Nunca versionar credenciais reais — use um gerenciador de segredos.
+docs/credentials.md

@@ -1,10 +1,14 @@
 require('dotenv').config({ quiet: true });
 
+const { validateEnv } = require('./config/validateEnv');
+validateEnv();
+
 const app = require('./app');
 const { startSyncEngagementOrdersJob } = require('./jobs/syncEngagementOrders');
 const { startExpirePendingOrdersJob } = require('./jobs/expirePendingOrders');
 const { startReconcilePixOrdersJob } = require('./jobs/reconcilePixOrders');
 const { startPurgeFailedOrdersJob } = require('./jobs/purgeFailedOrders');
+const { startPurgeExpiredRefreshTokensJob } = require('./jobs/purgeExpiredRefreshTokens');
 
 const PORT = process.env.PORT || 3000;
 
@@ -16,4 +20,5 @@ app.listen(PORT, () => {
   startReconcilePixOrdersJob();
   startExpirePendingOrdersJob();
   startPurgeFailedOrdersJob();
+  startPurgeExpiredRefreshTokensJob();
 });

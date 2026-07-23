@@ -8,6 +8,7 @@ function serializeCategory(category) {
   return {
     id: category.id,
     name: category.name,
+    order: category.order,
     createdAt: category.createdAt,
     updatedAt: category.updatedAt,
     productCount: category._count.products,
@@ -17,7 +18,7 @@ function serializeCategory(category) {
 
 async function listCategories() {
   const categories = await prisma.category.findMany({
-    orderBy: { name: 'asc' },
+    orderBy: [{ order: 'asc' }, { name: 'asc' }],
     include: {
       _count: { select: { products: true } },
       products: { select: { id: true, title: true }, orderBy: { createdAt: 'desc' }, take: 1 },
@@ -33,7 +34,18 @@ async function getCategoryById(id) {
 }
 
 async function createCategory({ name }) {
-  return prisma.category.create({ data: { name } });
+  const last = await prisma.category.findFirst({ orderBy: { order: 'desc' }, select: { order: true } });
+  return prisma.category.create({ data: { name, order: (last?.order ?? -1) + 1 } });
+}
+
+/**
+ * Bulk-updates the display order of categories. Ids not found are ignored by
+ * updateMany (no-op) rather than throwing, so a stale client payload can't
+ * fail the whole reorder — the UI just refetches and shows the real state.
+ */
+async function reorderCategories(items) {
+  await prisma.$transaction(items.map(({ id, order }) => prisma.category.updateMany({ where: { id }, data: { order } })));
+  return listCategories();
 }
 
 async function updateCategory(id, { name }) {
@@ -63,4 +75,4 @@ async function deleteCategory(id) {
   return prisma.category.delete({ where: { id } });
 }
 
-module.exports = { listCategories, getCategoryById, createCategory, updateCategory, deleteCategory };
+module.exports = { listCategories, getCategoryById, createCategory, updateCategory, deleteCategory, reorderCategories };

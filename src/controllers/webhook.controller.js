@@ -10,7 +10,7 @@ const handleMercadoPago = asyncHandler(async (req, res) => {
     paymentService.verifyWebhookSignature(req);
 
     const type = req.query.type || req.body?.type;
-    const dataId = req.query['data.id'] || req.body?.data?.id;
+    const dataId = paymentService.getWebhookDataId(req);
 
     if (type === 'order' && dataId) {
       const mpOrder = await paymentService.getOrder(dataId);

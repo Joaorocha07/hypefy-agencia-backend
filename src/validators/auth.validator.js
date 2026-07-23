@@ -22,6 +22,12 @@ const refreshSchema = z.object({
   }),
 });
 
+const logoutSchema = z.object({
+  body: z.object({
+    refreshToken: z.string().min(1).optional(),
+  }),
+});
+
 const forgotPasswordSchema = z.object({
   body: z.object({
     email: z.string().email(),
@@ -61,6 +67,7 @@ module.exports = {
   registerSchema,
   loginSchema,
   refreshSchema,
+  logoutSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
   changePasswordSchema,

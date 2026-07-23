@@ -23,6 +23,11 @@ const refresh = asyncHandler(async (req, res) => {
   success(res, result, 'Token renovado');
 });
 
+const logout = asyncHandler(async (req, res) => {
+  await authService.logout(req.body.refreshToken);
+  success(res, null, 'Logout realizado com sucesso');
+});
+
 const forgotPassword = asyncHandler(async (req, res) => {
   await authService.forgotPassword(req.body.email);
   success(res, null, 'Se o email existir, um link de redefinição foi enviado');
@@ -53,6 +58,7 @@ module.exports = {
   login,
   googleLogin,
   refresh,
+  logout,
   forgotPassword,
   resetPassword,
   changePassword,

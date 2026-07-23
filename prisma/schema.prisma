@@ -61,6 +61,10 @@ model User {
   isActive             Boolean   @default(true) @map("is_active")
   passwordResetToken   String?   @map("password_reset_token")
   passwordResetExpires DateTime? @map("password_reset_expires")
+  // Lockout temporário por tentativas de login com senha errada — resetado a
+  // cada login bem-sucedido. Não se aplica ao login via Google (não usa senha).
+  failedLoginAttempts  Int       @default(0) @map("failed_login_attempts")
+  lockedUntil          DateTime? @map("locked_until")
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
@@ -70,8 +74,48 @@ model User {
   accessUpdateLogs AccessUpdateLog[]
   createdCoupons   Coupon[]          @relation("CouponCreatedBy")
   reviews          Review[]
+  refreshTokens    RefreshToken[]
 
   @@map("users")
+}
+
+/**
+ * Um registro por refresh token emitido — permite revogação individual
+ * (logout) e detecção de reuso: a cada /auth/refresh o token usado é marcado
+ * como revogado e um novo é criado (rotação). Se um token já revogado for
+ * reapresentado, é sinal de furto e todas as sessões do usuário são revogadas.
+ */
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("refresh_tokens")
+}
+
+/**
+ * Solicitações de titular de dados (LGPD) recebidas pelo formulário público
+ * "Direitos do Titular" do frontend — persistidas para que o DPO consiga
+ * localizar e responder dentro do prazo legal (antes disso, ficavam só em log).
+ */
+model LgpdRequest {
+  id         String    @id @default(uuid())
+  protocol   String    @unique
+  name       String
+  email      String
+  cpf        String?
+  type       String
+  message    String?   @db.Text
+  ip         String?
+  resolvedAt DateTime? @map("resolved_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@map("lgpd_requests")
 }
 
 model Product {
@@ -120,6 +164,9 @@ model Product {
 model Category {
   id        String   @id @default(uuid())
   name      String   @unique
+  // Posição de exibição das seções de categoria na loja (0 = primeira) —
+  // ajustável pelo ADM/FUNC em /admin/categorias, independente da data de criação.
+  order     Int      @default(0) @map("sort_order")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 

@@ -68,15 +68,30 @@ async function getOrder(orderId) {
   return orderClient.get({ id: orderId });
 }
 
+// Única fonte de verdade para extrair o data.id do webhook — usada tanto na
+// verificação de assinatura quanto no processamento, para que ambas nunca
+// avaliem IDs diferentes de uma mesma requisição.
+function getWebhookDataId(req) {
+  return req.query['data.id'] || req.body?.data?.id || req.query.id;
+}
+
 // Valida a assinatura do webhook do Mercado Pago (header x-signature)
 // Docs: https://www.mercadopago.com.br/developers/pt/docs/checkout-api/webhooks
 function verifyWebhookSignature(req) {
   const secret = process.env.MP_WEBHOOK_SECRET;
-  if (!secret) return true; // sem secret configurado, pula validação (dev)
+  if (!secret) {
+    // Falha fechado em produção: sem secret configurado, um notificador
+    // externo poderia forçar reconciliação de qualquer pedido sob demanda.
+    // Só em dev/local (sem MP_WEBHOOK_SECRET configurado) o pulo é aceitável.
+    if (process.env.NODE_ENV === 'production') {
+      throw new AppError('MP_WEBHOOK_SECRET não configurado', 401);
+    }
+    return true;
+  }
 
   const signatureHeader = req.headers['x-signature'];
   const requestId = req.headers['x-request-id'];
-  const dataId = req.query['data.id'] || req.query.id;
+  const dataId = getWebhookDataId(req);
 
   if (!signatureHeader || !requestId || !dataId) {
     throw new AppError('Webhook sem cabeçalhos de assinatura', 401);
@@ -102,4 +117,4 @@ function verifyWebhookSignature(req) {
   return true;
 }
 
-module.exports = { createPixOrder, getOrder, verifyWebhookSignature };
+module.exports = { createPixOrder, getOrder, verifyWebhookSignature, getWebhookDataId };
