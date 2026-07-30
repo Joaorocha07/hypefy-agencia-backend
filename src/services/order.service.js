@@ -4,6 +4,7 @@ const couponService = require('./coupon.service');
 const engagementService = require('./engagement.service');
 const paymentService = require('./payment.service');
 const { syncProductStockQuantity } = require('./stock.service');
+const { sendMail } = require('../config/mailer');
 
 // Status da Orders API do Mercado Pago (não confundir com o status do Payment legado).
 // Compartilhado pelo webhook e pelo job de reconciliação (reconcilePendingPixOrders).
@@ -217,10 +218,31 @@ function computeOrderCost(order, product) {
   return Number(product.costPrice || 0) * order.quantity;
 }
 
+// Falha no envio desse aviso não deve derrubar a confirmação de um pagamento
+// já processado (estoque reservado, transação registrada) — só loga.
+async function notifyOrderPaid(order) {
+  try {
+    const productUrl = `${process.env.FRONTEND_URL}/produtos/${order.product.id}`;
+    const orderUrl = `${process.env.FRONTEND_URL}/pedidos/${order.id}`;
+    await sendMail({
+      to: order.user.email,
+      subject: `Compra confirmada — ${order.product.title}`,
+      html: `<p>Olá${order.user.name ? `, ${order.user.name}` : ''}!</p>
+             <p>Recebemos o seu pagamento e sua compra foi confirmada:</p>
+             <p><strong>${order.product.title}</strong></p>
+             <p><a href="${productUrl}">${productUrl}</a></p>
+             <p>Acompanhe a entrega e o status do seu pedido em:</p>
+             <p><a href="${orderUrl}">${orderUrl}</a></p>`,
+    });
+  } catch (err) {
+    console.error('Falha ao enviar email de compra confirmada:', { orderId: order.id, message: err.message });
+  }
+}
+
 async function markOrderAsPaid(orderId) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { product: { include: { category: true } } },
+    include: { product: { include: { category: true } }, user: { select: { id: true, email: true, name: true } } },
   });
   if (!order) throw new AppError('Pedido não encontrado', 404);
   if (order.paymentStatus === 'PAID') return order; // idempotente
@@ -298,6 +320,8 @@ async function markOrderAsPaid(orderId) {
   } else {
     await fulfillDigitalOrder(order, order.product);
   }
+
+  await notifyOrderPaid(order);
 
   return prisma.order.findUnique({ where: { id: orderId } });
 }

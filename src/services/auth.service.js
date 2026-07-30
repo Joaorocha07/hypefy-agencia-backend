@@ -185,6 +185,22 @@ async function forgotPassword(email) {
   });
 }
 
+// Falha no envio desse aviso não deve derrubar uma troca de senha que já foi
+// aplicada no banco — só loga, nunca propaga para o controller.
+async function notifyPasswordChanged(user) {
+  try {
+    await sendMail({
+      to: user.email,
+      subject: 'Sua senha foi alterada — Hypefy Agência',
+      html: `<p>Olá${user.name ? `, ${user.name}` : ''}!</p>
+             <p>Confirmamos que a senha da sua conta Hypefy Agência foi alterada agora há pouco.</p>
+             <p>Se foi você, pode ignorar este email. Se não reconhece essa alteração, entre em contato com o suporte imediatamente.</p>`,
+    });
+  } catch (err) {
+    console.error('Falha ao enviar email de senha alterada:', { userId: user.id, message: err.message });
+  }
+}
+
 async function resetPassword({ token, newPassword }) {
   const passwordResetToken = hashToken(token);
   const user = await prisma.user.findFirst({
@@ -205,6 +221,7 @@ async function resetPassword({ token, newPassword }) {
   // Uma troca de senha (própria vontade ou recuperação) deve derrubar
   // qualquer sessão existente — inclusive a de quem roubou a senha antiga.
   await refreshTokenService.revokeAllForUser(user.id);
+  await notifyPasswordChanged(user);
 }
 
 async function changePassword(userId, { currentPassword, newPassword }) {
@@ -216,6 +233,7 @@ async function changePassword(userId, { currentPassword, newPassword }) {
   const passwordHash = await hashPassword(newPassword);
   await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
   await refreshTokenService.revokeAllForUser(userId);
+  await notifyPasswordChanged(user);
 }
 
 async function updateProfile(userId, { name, email, phone, cpf }, file) {
