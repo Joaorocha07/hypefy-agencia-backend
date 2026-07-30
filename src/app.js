@@ -10,6 +10,11 @@ const { notFoundHandler, errorHandler } = require('./middlewares/errorHandler');
 
 const app = express();
 
+// Render fica atrás de um único proxy reverso que injeta X-Forwarded-For;
+// sem isso o Express não confia no header e o express-rate-limit recusa
+// operar (ERR_ERL_UNEXPECTED_X_FORWARDED_FOR). `1` = confia só no 1º hop.
+app.set('trust proxy', 1);
+
 const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || process.env.FRONTEND_URL || '')
   .split(',')
   .map((origin) => origin.trim())
