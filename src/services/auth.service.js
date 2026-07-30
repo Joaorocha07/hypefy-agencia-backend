@@ -174,7 +174,7 @@ async function forgotPassword(email) {
     data: { passwordResetToken, passwordResetExpires },
   });
 
-  const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${rawToken}`;
+  const resetUrl = `${process.env.FRONTEND_URL}/redefinir-senha?token=${rawToken}`;
   await sendMail({
     to: user.email,
     subject: 'Redefinição de senha — Hypefy Agência',
