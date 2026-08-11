@@ -95,6 +95,8 @@ model RefreshToken {
 
   user User @relation(fields: [userId], references: [id])
 
+  @@index([userId])
+  @@index([expiresAt])
   @@map("refresh_tokens")
 }
 
@@ -158,6 +160,10 @@ model Product {
   reviews          Review[]
   accessUpdateLogs AccessUpdateLog[]
 
+  @@index([categoryId])
+  @@index([platformId])
+  @@index([isActive])
+  @@index([isFeatured])
   @@map("products")
 }
 
@@ -215,6 +221,10 @@ model StockItem {
   order        Order?  @relation(fields: [orderId], references: [id])
   lastEditedBy User?   @relation("StockItemLastEditedBy", fields: [lastEditedById], references: [id])
 
+  // Matches the exact filter used to check/reserve available stock at checkout
+  // (see order.service.js#createOrder and #fulfillDigitalOrder).
+  @@index([productId, isSold])
+  @@index([soldToUserId])
   @@map("stock_items")
 }
 
@@ -266,6 +276,10 @@ model Order {
   chatMessages ChatMessage[]
   stockItems   StockItem[]
 
+  @@index([userId])
+  @@index([productId])
+  @@index([paymentStatus])
+  @@index([createdAt])
   @@map("orders")
 }
 
@@ -297,6 +311,7 @@ model Transaction {
 
   order Order? @relation(fields: [orderId], references: [id])
 
+  @@index([orderId])
   @@map("transactions")
 }
 
@@ -310,6 +325,7 @@ model ChatMessage {
 
   order Order @relation(fields: [orderId], references: [id])
 
+  @@index([orderId])
   @@map("chat_messages")
 }
 
@@ -328,5 +344,6 @@ model Review {
   user    User    @relation(fields: [userId], references: [id])
 
   @@unique([userId, productId])
+  @@index([productId])
   @@map("reviews")
 }

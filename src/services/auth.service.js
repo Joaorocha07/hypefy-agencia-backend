@@ -6,6 +6,7 @@ const { sendMail } = require('../config/mailer');
 const storageService = require('./storage.service');
 const googleClient = require('../config/google');
 const refreshTokenService = require('./refreshToken.service');
+const { isValidCpf } = require('../utils/cpf');
 
 // Hash bcrypt fixo (não corresponde a nenhuma senha real) usado só para gastar
 // o mesmo tempo de CPU que um bcrypt.compare real quando o usuário não existe
@@ -248,7 +249,7 @@ async function updateProfile(userId, { name, email, phone, cpf }, file) {
   let cpfDigits = user.cpf;
   if (cpf !== undefined) {
     cpfDigits = cpf.replace(/\D/g, '');
-    if (cpfDigits.length > 0 && cpfDigits.length !== 11) {
+    if (cpfDigits.length > 0 && !isValidCpf(cpfDigits)) {
       throw new AppError('CPF inválido', 422);
     }
     if (cpfDigits.length === 0) cpfDigits = null;

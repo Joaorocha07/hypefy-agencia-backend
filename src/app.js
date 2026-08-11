@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const compression = require('compression');
 const morgan = require('morgan');
 const swaggerUi = require('swagger-ui-express');
 
@@ -21,6 +22,7 @@ const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || process.env.FRONTEND
   .filter(Boolean);
 
 app.use(helmet());
+app.use(compression());
 app.use(
   cors({
     origin(origin, callback) {

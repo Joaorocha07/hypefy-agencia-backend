@@ -77,7 +77,8 @@
       "Bash(xargs -I{} echo {})",
       "Bash(git rm *)",
       "Bash(pkill -f \"node src/server.js\")",
-      "Bash(npm uninstall *)"
+      "Bash(npm uninstall *)",
+      "Bash(xargs ls)"
     ]
   }
 }
