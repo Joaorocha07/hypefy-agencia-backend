@@ -29,6 +29,21 @@ async function addStockItems(productId, items) {
   });
 }
 
+// Vagas "vazias" (sem credenciais) para produtos cuja entrega é sempre manual
+// — content fica em branco, e fulfillDigitalOrder detecta isManual pra mandar
+// o aviso de WhatsApp em vez de tentar entregar credenciais inexistentes.
+async function addManualStockSlots(productId, quantity) {
+  const product = await prisma.product.findUnique({ where: { id: productId } });
+  if (!product) throw new AppError('Produto não encontrado', 404);
+
+  return prisma.$transaction(async (tx) => {
+    await tx.stockItem.createMany({
+      data: Array.from({ length: quantity }, () => ({ productId, content: '', isManual: true })),
+    });
+    return syncProductStockQuantity(tx, productId);
+  });
+}
+
 async function listStockItems(productId, { isSold, page = 1, limit = 50 }) {
   const where = { productId, ...(isSold !== undefined && { isSold }) };
 
@@ -71,10 +86,15 @@ async function listStockAccounts(productId, { isSold, page = 1, limit = 50 }) {
 
   const groups = new Map();
   for (const item of allItems) {
-    let group = groups.get(item.content);
+    // Chave composta: vagas manuais têm content sempre vazio, então precisam de
+    // uma chave própria pra não se misturarem entre si (nem, em tese, com uma
+    // conta real que por engano tenha content vazio).
+    const groupKey = `${item.isManual}:${item.content}`;
+    let group = groups.get(groupKey);
     if (!group) {
       group = {
         content: item.content,
+        isManual: item.isManual,
         quantidade: item.quantidade,
         availableId: null,
         anyId: item.id,
@@ -86,7 +106,7 @@ async function listStockAccounts(productId, { isSold, page = 1, limit = 50 }) {
         lastEditedByName: item.lastEditedBy ? item.lastEditedBy.name || item.lastEditedBy.email : null,
         screenPins: [],
       };
-      groups.set(item.content, group);
+      groups.set(groupKey, group);
     }
     if (item.isSold) {
       group.sold += 1;
@@ -105,6 +125,7 @@ async function listStockAccounts(productId, { isSold, page = 1, limit = 50 }) {
   let groupList = Array.from(groups.values()).map((g) => ({
     id: g.availableId ?? g.anyId,
     content: g.content,
+    isManual: g.isManual,
     quantidade: g.quantidade,
     available: g.available,
     sold: g.sold,
@@ -370,8 +391,19 @@ async function getStockOverview() {
   };
 }
 
+// Custo usado nos pedidos entregues por vaga manual (ver computeOrderCost em
+// order.service.js) — separado de costPrice porque costuma variar e não tem
+// relação com o custo de estoque "normal" do produto.
+async function setManualCostPrice(productId, manualCostPrice) {
+  const product = await prisma.product.findUnique({ where: { id: productId } });
+  if (!product) throw new AppError('Produto não encontrado', 404);
+
+  return prisma.product.update({ where: { id: productId }, data: { manualCostPrice } });
+}
+
 module.exports = {
   addStockItems,
+  addManualStockSlots,
   listStockItems,
   listStockAccounts,
   getStockOverview,
@@ -382,4 +414,5 @@ module.exports = {
   notifyAccessUpdate,
   previewAccessUpdateRecipients,
   getAccessUpdateLog,
+  setManualCostPrice,
 };

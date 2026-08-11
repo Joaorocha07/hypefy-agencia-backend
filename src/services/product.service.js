@@ -3,8 +3,8 @@ const AppError = require('../utils/appError');
 const storageService = require('./storage.service');
 const engagementService = require('./engagement.service');
 
-const PRICE_FIELDS = ['price', 'costPrice', 'profitMarginPercent'];
-const FINANCIAL_FIELDS = ['costPrice', 'profitMarginPercent'];
+const PRICE_FIELDS = ['price', 'costPrice', 'profitMarginPercent', 'manualCostPrice'];
+const FINANCIAL_FIELDS = ['costPrice', 'profitMarginPercent', 'manualCostPrice'];
 
 // stockQuantity is never client-writable — it's derived from real StockItem
 // rows (see stock.service.js#syncProductStockQuantity) so it can't drift from

@@ -20,4 +20,10 @@ const listOrdersSchema = z.object({
   }),
 });
 
-module.exports = { createOrderSchema, listOrdersSchema };
+const setManualStartCountSchema = z.object({
+  body: z.object({
+    startCount: z.coerce.number().int().nonnegative(),
+  }),
+});
+
+module.exports = { createOrderSchema, listOrdersSchema, setManualStartCountSchema };

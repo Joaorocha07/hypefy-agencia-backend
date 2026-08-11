@@ -3,7 +3,7 @@ const controller = require('../controllers/order.controller');
 const validate = require('../middlewares/validate');
 const { authenticate, authorize } = require('../middlewares/auth');
 const { paymentRateLimiter } = require('../middlewares/rateLimit');
-const { createOrderSchema, listOrdersSchema } = require('../validators/order.validator');
+const { createOrderSchema, listOrdersSchema, setManualStartCountSchema } = require('../validators/order.validator');
 
 const router = Router();
 
@@ -133,5 +133,88 @@ router.get('/admin/all', authorize('ADM', 'FUNC'), validate(listOrdersSchema), c
  *       404: { $ref: '#/components/responses/NotFound' }
  */
 router.get('/admin/:id', authorize('ADM', 'FUNC'), controller.getAdmin);
+
+/**
+ * @swagger
+ * /orders/admin/{id}/complete:
+ *   post:
+ *     tags: [Orders]
+ *     summary: Marcar pedido como concluído manualmente — ADM/FUNC
+ *     description: Para pedidos com pagamento confirmado que a equipe entregou fora do fluxo automático (ex. falha ao criar a ordem na Baratos Sociais). Exige paymentStatus=PAID e orderStatus fora de COMPLETED/CANCELLED.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Pedido atualizado para orderStatus=COMPLETED
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ApiResponse' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ *       422: { $ref: '#/components/responses/ValidationError' }
+ */
+router.post('/admin/:id/complete', authorize('ADM', 'FUNC'), controller.completeManually);
+
+/**
+ * @swagger
+ * /orders/admin/{id}/engagement-status:
+ *   get:
+ *     tags: [Orders]
+ *     summary: Consultar status ao vivo do pedido de engajamento na Baratos Sociais — ADM/FUNC
+ *     description: Equivalente a /orders/me/{id}/engagement-status, mas sem restrição de dono do pedido. Atualiza também o payload salvo no chat (ENGAGEMENT_STATUS).
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     responses:
+ *       200:
+ *         description: Status atual (charge, start_count, status, remains)
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ApiResponse' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ *       422: { description: 'Pedido não possui ordem de engajamento associada', content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+ */
+router.get('/admin/:id/engagement-status', authorize('ADM', 'FUNC'), controller.adminEngagementStatus);
+
+/**
+ * @swagger
+ * /orders/admin/{id}/manual-start-count:
+ *   put:
+ *     tags: [Orders]
+ *     summary: Registrar manualmente a contagem inicial de um pedido de engajamento — ADM/FUNC
+ *     description: Para pedidos entregues fora do fluxo automático, sem baratosSociaisOrderId (portanto sem start_count vindo da API). Só vale para produtos da categoria ENGAJAMENTO.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [startCount]
+ *             properties:
+ *               startCount: { type: integer, minimum: 0, example: 1250 }
+ *     responses:
+ *       200:
+ *         description: Pedido atualizado com manualStartCount preenchido
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ApiResponse' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ *       422: { description: 'Produto não é de engajamento', content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } } }
+ */
+router.put(
+  '/admin/:id/manual-start-count',
+  authorize('ADM', 'FUNC'),
+  validate(setManualStartCountSchema),
+  controller.setManualStartCount
+);
 
 module.exports = router;

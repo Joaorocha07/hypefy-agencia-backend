@@ -8,6 +8,8 @@ const {
   updateStockItemSchema,
   updateScreenPinSchema,
   notifyAccessUpdateSchema,
+  addManualStockSchema,
+  setManualCostSchema,
 } = require('../validators/stock.validator');
 
 const router = Router();
@@ -95,6 +97,79 @@ router.get('/overview', authorize('ADM'), controller.overview);
  */
 router.post('/products/:productId', validate(addStockItemsSchema), controller.addItems);
 router.get('/products/:productId', validate(listStockItemsSchema), controller.listItems);
+
+/**
+ * @swagger
+ * /stock/products/{productId}/manual:
+ *   post:
+ *     tags: [Stock]
+ *     summary: Adicionar vagas de entrega manual (sem credenciais) — ADM/FUNC
+ *     description: >
+ *       Cria `quantity` StockItem sem conteúdo (content vazio, isManual=true) — contam para
+ *       o estoque disponível do produto, mas quando vendidas não entregam credenciais
+ *       automaticamente: o pedido vai para orderStatus=PROCESSING e o cliente recebe uma
+ *       mensagem automática no chat com um link de WhatsApp (SUPPORT_WHATSAPP_NUMBER) para
+ *       agilizar caso o chat demore.
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [quantity]
+ *             properties:
+ *               quantity: { type: integer, minimum: 1, example: 5 }
+ *     responses:
+ *       201:
+ *         description: Vagas adicionadas; stockQuantity do produto incrementado
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ApiResponse' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+router.post('/products/:productId/manual', validate(addManualStockSchema), controller.addManualItems);
+
+/**
+ * @swagger
+ * /stock/products/{productId}/manual-cost:
+ *   patch:
+ *     tags: [Stock]
+ *     summary: Definir/editar o custo dos pedidos de entrega manual deste produto (ADM only)
+ *     description: Usado no lugar do custo de estoque normal quando o pedido é atendido por uma vaga manual — editável a qualquer momento, já que o custo real da entrega manual pode variar.
+ *     parameters:
+ *       - in: path
+ *         name: productId
+ *         required: true
+ *         schema: { type: string, format: uuid }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [manualCostPrice]
+ *             properties:
+ *               manualCostPrice: { type: number, nullable: true, example: 12.5 }
+ *     responses:
+ *       200:
+ *         description: Produto atualizado
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ApiResponse' }
+ *       403: { $ref: '#/components/responses/Forbidden' }
+ *       404: { $ref: '#/components/responses/NotFound' }
+ */
+router.patch(
+  '/products/:productId/manual-cost',
+  authorize('ADM'),
+  validate(setManualCostSchema),
+  controller.setManualCost
+);
 
 /**
  * @swagger

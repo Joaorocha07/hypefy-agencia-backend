@@ -7,6 +7,16 @@ const addItems = asyncHandler(async (req, res) => {
   success(res, product, 'Itens de estoque adicionados com sucesso', 201);
 });
 
+const addManualItems = asyncHandler(async (req, res) => {
+  const product = await stockService.addManualStockSlots(req.params.productId, req.body.quantity);
+  success(res, product, 'Vagas manuais adicionadas com sucesso', 201);
+});
+
+const setManualCost = asyncHandler(async (req, res) => {
+  const product = await stockService.setManualCostPrice(req.params.productId, req.body.manualCostPrice);
+  success(res, product, 'Custo manual atualizado com sucesso');
+});
+
 const listItems = asyncHandler(async (req, res) => {
   const result = await stockService.listStockItems(req.params.productId, req.query);
   success(res, result);
@@ -68,6 +78,8 @@ const accessLog = asyncHandler(async (req, res) => {
 
 module.exports = {
   addItems,
+  addManualItems,
+  setManualCost,
   listItems,
   listAccounts,
   overview,

@@ -151,10 +151,29 @@ async function createOrder(userId, data) {
   return updatedOrder;
 }
 
+// Monta o link do WhatsApp com mensagem pré-preenchida ("Olá, vim do site e
+// comprei X") para o aviso automático de pedidos com entrega manual. Sem
+// SUPPORT_WHATSAPP_NUMBER configurado, degrada pra null (sem link) em vez de
+// gerar um wa.me quebrado.
+function buildManualDeliveryWhatsAppLink(product) {
+  const number = process.env.SUPPORT_WHATSAPP_NUMBER;
+  if (!number) return null;
+  const text = encodeURIComponent(`Olá, vim do site e comprei ${product.title}`);
+  return `https://wa.me/${number}?text=${text}`;
+}
+
+// StockItem.isManual = vaga sem credenciais reais (content vazio) — usada por
+// produtos cuja entrega é sempre feita manualmente pela equipe (ex: Canva por
+// convite, contas que não dá pra deixar pré-cadastradas). Nesses pedidos não há
+// o que entregar automaticamente: a vaga é consumida (conta pro estoque) mas em
+// vez de credenciais o cliente recebe um aviso com link de WhatsApp.
 async function fulfillDigitalOrder(order, product) {
   return prisma.$transaction(async (tx) => {
+    // Prioriza vagas reais (isManual=false) sobre manuais — só recorre ao manual
+    // quando o estoque de credenciais de verdade acabou.
     const stockItems = await tx.stockItem.findMany({
       where: { productId: product.id, isSold: false },
+      orderBy: [{ isManual: 'asc' }, { createdAt: 'asc' }],
       take: order.quantity,
     });
 
@@ -168,7 +187,8 @@ async function fulfillDigitalOrder(order, product) {
           isDelivery: false,
         },
       });
-      return tx.order.update({ where: { id: order.id }, data: { orderStatus: 'PROCESSING' } });
+      const updated = await tx.order.update({ where: { id: order.id }, data: { orderStatus: 'PROCESSING' } });
+      return { order: updated, usedManualStock: false };
     }
 
     const ids = stockItems.map((s) => s.id);
@@ -178,6 +198,25 @@ async function fulfillDigitalOrder(order, product) {
     });
 
     await syncProductStockQuantity(tx, product.id);
+
+    // Uma vaga manual no meio já basta pra tratar o pedido inteiro como manual —
+    // não faz sentido entregar metade das credenciais automaticamente e deixar
+    // a outra metade pendente (ver nota em fulfillDigitalOrder no service).
+    const usedManualStock = stockItems.some((s) => s.isManual);
+
+    if (usedManualStock) {
+      const waLink = buildManualDeliveryWhatsAppLink(product);
+      const message = waLink
+        ? `Pagamento confirmado! Este produto tem entrega manual — nossa equipe vai te atender por aqui em breve. Se demorar pra responder pelo chat, pode chamar no WhatsApp: ${waLink}`
+        : 'Pagamento confirmado! Este produto tem entrega manual — nossa equipe vai te atender por aqui em breve.';
+
+      await tx.chatMessage.create({
+        data: { orderId: order.id, sender: 'SYSTEM', message, isDelivery: false },
+      });
+
+      const updated = await tx.order.update({ where: { id: order.id }, data: { orderStatus: 'PROCESSING' } });
+      return { order: updated, usedManualStock: true };
+    }
 
     const deliveredContent = stockItems
       .map((s) => (s.pin ? `${s.content}\nPIN: ${s.pin}` : s.content))
@@ -201,21 +240,26 @@ async function fulfillDigitalOrder(order, product) {
       },
     });
 
-    return tx.order.update({
+    const updated = await tx.order.update({
       where: { id: order.id },
       data: { orderStatus: 'COMPLETED', deliveredContent },
     });
+    return { order: updated, usedManualStock: false };
   });
 }
 
-function computeOrderCost(order, product) {
+function computeOrderCost(order, product, usedManualStock = false) {
   if (product.category.name === 'ENGAJAMENTO') {
     // custo da API independe do desconto de cupom aplicado ao cliente
     const subtotal = Number(order.totalPrice) + Number(order.discountAmount);
     const margin = Number(product.profitMarginPercent || 0);
     return subtotal / (1 + margin / 100);
   }
-  return Number(product.costPrice || 0) * order.quantity;
+  // Entrega manual pode ter um custo diferente do estoque "normal" (ver
+  // Product.manualCostPrice) — cai pra costPrice se nenhum custo manual foi
+  // cadastrado ainda, em vez de contabilizar custo zero.
+  const unitCost = usedManualStock ? Number(product.manualCostPrice ?? product.costPrice ?? 0) : Number(product.costPrice || 0);
+  return unitCost * order.quantity;
 }
 
 // Falha no envio desse aviso não deve derrubar a confirmação de um pagamento
@@ -258,25 +302,16 @@ async function markOrderAsPaid(orderId) {
     },
   });
 
-  const cost = computeOrderCost(order, order.product);
-  if (cost > 0) {
-    await prisma.transaction.create({
-      data: {
-        orderId: order.id,
-        type: 'COST',
-        amount: cost,
-        description:
-          order.product.category.name === 'ENGAJAMENTO'
-            ? `Custo API Baratos Sociais: ${order.product.title}`
-            : `Custo de estoque: ${order.product.title}`,
-      },
-    });
-  }
-
   if (order.couponCode) {
     const coupon = await prisma.coupon.findUnique({ where: { code: order.couponCode } });
     if (coupon) await couponService.registerCouponUse(coupon.id);
   }
+
+  // O custo de um pedido digital depende de qual vaga de estoque atende ele
+  // (normal vs manual — ver computeOrderCost), então só dá pra saber isso
+  // depois de fulfillDigitalOrder escolher as vagas — por isso o custo é
+  // calculado abaixo, depois da entrega, e não logo após a venda.
+  let usedManualStock = false;
 
   if (order.product.category.name === 'ENGAJAMENTO') {
     try {
@@ -318,7 +353,25 @@ async function markOrderAsPaid(orderId) {
       });
     }
   } else {
-    await fulfillDigitalOrder(order, order.product);
+    const result = await fulfillDigitalOrder(order, order.product);
+    usedManualStock = result.usedManualStock;
+  }
+
+  const cost = computeOrderCost(order, order.product, usedManualStock);
+  if (cost > 0) {
+    await prisma.transaction.create({
+      data: {
+        orderId: order.id,
+        type: 'COST',
+        amount: cost,
+        description:
+          order.product.category.name === 'ENGAJAMENTO'
+            ? `Custo API Baratos Sociais: ${order.product.title}`
+            : usedManualStock
+              ? `Custo de entrega manual: ${order.product.title}`
+              : `Custo de estoque: ${order.product.title}`,
+      },
+    });
   }
 
   await notifyOrderPaid(order);
@@ -334,6 +387,37 @@ async function markOrderAsFailed(orderId) {
     where: { id: orderId },
     data: { paymentStatus: 'FAILED', orderStatus: 'CANCELLED' },
   });
+}
+
+// Cobre pedidos entregues fora do fluxo automático (ex: API da Baratos Sociais
+// falhou ao criar a ordem — baratosSociaisOrderId nunca é preenchido, então nem
+// o webhook nem o job syncProcessingOrders têm como fechar o pedido — e a
+// equipe entregou manualmente por outro canal, como WhatsApp).
+async function markOrderCompletedManually(orderId) {
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!order) throw new AppError('Pedido não encontrado', 404);
+  if (order.paymentStatus !== 'PAID') {
+    throw new AppError('Só é possível concluir manualmente um pedido com pagamento confirmado', 422);
+  }
+  if (order.orderStatus === 'COMPLETED' || order.orderStatus === 'CANCELLED') {
+    throw new AppError('Este pedido já está concluído ou cancelado', 422);
+  }
+
+  await prisma.order.update({ where: { id: orderId }, data: { orderStatus: 'COMPLETED' } });
+
+  await prisma.chatMessage.create({
+    data: {
+      orderId,
+      sender: 'SYSTEM',
+      message: 'Pedido concluído manualmente pela nossa equipe.',
+      isDelivery: false,
+    },
+  });
+
+  // Retorna no mesmo formato completo de getOrderAdmin (com user/product/
+  // engagementStatus) — o front substitui o pedido inteiro por esse retorno,
+  // então devolver só a linha crua do update() quebra a tela (faltam as relações).
+  return getOrderAdmin(orderId);
 }
 
 // Rede de segurança para quando o webhook do Mercado Pago não chega (túnel ngrok caiu,
@@ -409,17 +493,16 @@ async function expireStalePendingOrders() {
   return { expired: result[1].count };
 }
 
-async function getEngagementStatusForOrder(orderId, userId) {
-  const order = await prisma.order.findFirst({
-    where: { id: orderId, userId },
-    select: { id: true, baratosSociaisOrderId: true },
-  });
-  if (!order) throw new AppError('Pedido não encontrado', 404);
+// Consulta o status ao vivo na Baratos Sociais e atualiza o payload salvo no
+// chat (ENGAGEMENT_STATUS:...) — é o que guarda startCount/remains/charge,
+// vistos tanto pelo cliente quanto pela equipe. Compartilhado pelas duas
+// variantes de getEngagementStatusForOrder* abaixo (cliente vs admin), que só
+// diferem em como validam o acesso ao pedido.
+async function refreshEngagementStatus(order) {
   if (!order.baratosSociaisOrderId) throw new AppError('Pedido não possui ordem de engajamento associada', 422);
 
   const status = await engagementService.getExternalOrderStatus(order.baratosSociaisOrderId);
 
-  // Persiste o status atualizado no chat message para que recarregar a página mostre os dados corretos
   const chatMsg = await prisma.chatMessage.findFirst({
     where: { orderId: order.id, message: { startsWith: 'ENGAGEMENT_STATUS:' } },
     select: { id: true, message: true },
@@ -439,6 +522,42 @@ async function getEngagementStatusForOrder(orderId, userId) {
   }
 
   return status;
+}
+
+async function getEngagementStatusForOrder(orderId, userId) {
+  const order = await prisma.order.findFirst({
+    where: { id: orderId, userId },
+    select: { id: true, baratosSociaisOrderId: true },
+  });
+  if (!order) throw new AppError('Pedido não encontrado', 404);
+  return refreshEngagementStatus(order);
+}
+
+// Mesma coisa, mas para ADM/FUNC — que acessam qualquer pedido, não só os próprios.
+async function getEngagementStatusForOrderAdmin(orderId) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, baratosSociaisOrderId: true },
+  });
+  if (!order) throw new AppError('Pedido não encontrado', 404);
+  return refreshEngagementStatus(order);
+}
+
+// Payload ENGAGEMENT_STATUS já salvo no chat (sem bater na API externa) — usado
+// para exibir de cara os dados iniciais (contagem inicial, quantidade, status)
+// no detalhe do pedido no admin, sem precisar abrir o chat e sem gastar uma
+// chamada à Baratos Sociais a cada carregamento da página.
+async function getStoredEngagementStatus(orderId) {
+  const chatMsg = await prisma.chatMessage.findFirst({
+    where: { orderId, message: { startsWith: 'ENGAGEMENT_STATUS:' } },
+    select: { message: true },
+  });
+  if (!chatMsg) return null;
+  try {
+    return JSON.parse(chatMsg.message.slice('ENGAGEMENT_STATUS:'.length));
+  } catch {
+    return null;
+  }
 }
 
 // Listagens não precisam do QR code do PIX (só é exibido no detalhe de um
@@ -550,13 +669,38 @@ async function getOrderAdmin(orderId) {
     },
   });
   if (!order) throw new AppError('Pedido não encontrado', 404);
-  return order;
+
+  const engagementStatus =
+    order.product.category.name === 'ENGAJAMENTO' ? await getStoredEngagementStatus(order.id) : null;
+
+  return { ...order, engagementStatus };
+}
+
+// Preenchido pela equipe quando o pedido foi entregue fora do fluxo automático
+// (sem baratosSociaisOrderId, então sem start_count vindo da API) — é o único
+// jeito de registrar "quanto tinha antes" nesses casos.
+async function setManualEngagementStartCount(orderId, startCount) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { product: { include: { category: true } } },
+  });
+  if (!order) throw new AppError('Pedido não encontrado', 404);
+  if (order.product.category.name !== 'ENGAJAMENTO') {
+    throw new AppError('Este pedido não é de um produto de engajamento', 422);
+  }
+
+  await prisma.order.update({ where: { id: orderId }, data: { manualStartCount: startCount } });
+
+  // Mesmo motivo do markOrderCompletedManually acima: o front espera o formato
+  // completo (com user/product), não a linha crua do update().
+  return getOrderAdmin(orderId);
 }
 
 module.exports = {
   createOrder,
   markOrderAsPaid,
   markOrderAsFailed,
+  markOrderCompletedManually,
   reconcilePendingPixOrders,
   expireStalePendingOrders,
   purgeOldFailedOrders,
@@ -569,4 +713,6 @@ module.exports = {
   getEngagementStatusForOrder,
   listAllOrders,
   getOrderAdmin,
+  getEngagementStatusForOrderAdmin,
+  setManualEngagementStartCount,
 };

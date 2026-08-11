@@ -127,6 +127,10 @@ model Product {
   imageUrl                String?  @map("image_url")
   price                   Decimal  @db.Decimal(10, 2)
   costPrice               Decimal? @map("cost_price") @db.Decimal(10, 2)
+  // Custo usado no lugar de costPrice quando o pedido é atendido por uma vaga
+  // manual (StockItem.isManual) — o custo real de entrega manual costuma variar
+  // e é editado à parte, sem afetar o custo do estoque "normal" do produto.
+  manualCostPrice         Decimal? @map("manual_cost_price") @db.Decimal(10, 2)
   stockQuantity           Int      @default(0) @map("stock_quantity")
   // Dias que o acesso vendido continua válido (ex: 30 para "1 mês") — usado para
   // decidir quem ainda "está no prazo" ao notificar clientes de uma atualização
@@ -198,6 +202,9 @@ model StockItem {
   id             String    @id @default(uuid())
   productId      String    @map("product_id")
   content        String
+  // Vaga sem credenciais reais — entrega é feita manualmente pela equipe (ver
+  // fulfillDigitalOrder em order.service.js). content fica vazio nesse caso.
+  isManual       Boolean   @default(false) @map("is_manual")
   // Quantidade de vagas/telas que a conta compartilhada suporta (ex: 4 telas
   // Netflix), replicado em todo StockItem dessa conta. Ao editar (PUT
   // /stock/items/:id), se o valor enviado for maior que o total de linhas
@@ -264,6 +271,10 @@ model Order {
   targetUrl               String?       @map("target_url")
   customComments          String?       @map("custom_comments") @db.Text
   baratosSociaisOrderId   String?       @map("baratos_sociais_order_id")
+  // Contagem inicial (seguidores/curtidas/etc.) digitada manualmente pela equipe
+  // para pedidos ENGAJAMENTO entregues fora do fluxo automático — quando a Baratos
+  // Sociais nunca chegou a criar a ordem, não existe start_count vindo da API.
+  manualStartCount        String?       @map("manual_start_count")
   deliveredContent        String?       @map("delivered_content") @db.Text
   customerLastReadAt      DateTime?     @map("customer_last_read_at")
   staffLastReadAt         DateTime?     @map("staff_last_read_at")

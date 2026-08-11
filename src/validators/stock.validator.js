@@ -50,4 +50,24 @@ const updateScreenPinSchema = z.object({
   }),
 });
 
-module.exports = { addStockItemsSchema, listStockItemsSchema, updateStockItemSchema, updateScreenPinSchema, notifyAccessUpdateSchema };
+const addManualStockSchema = z.object({
+  body: z.object({
+    quantity: z.coerce.number().int().positive().max(1000),
+  }),
+});
+
+const setManualCostSchema = z.object({
+  body: z.object({
+    manualCostPrice: z.coerce.number().nonnegative().nullable(),
+  }),
+});
+
+module.exports = {
+  addStockItemsSchema,
+  listStockItemsSchema,
+  updateStockItemSchema,
+  updateScreenPinSchema,
+  notifyAccessUpdateSchema,
+  addManualStockSchema,
+  setManualCostSchema,
+};

@@ -27,9 +27,34 @@ const getAdmin = asyncHandler(async (req, res) => {
   success(res, order);
 });
 
+const completeManually = asyncHandler(async (req, res) => {
+  const order = await orderService.markOrderCompletedManually(req.params.id);
+  success(res, order, 'Pedido marcado como concluído manualmente');
+});
+
+const adminEngagementStatus = asyncHandler(async (req, res) => {
+  const status = await orderService.getEngagementStatusForOrderAdmin(req.params.id);
+  success(res, status);
+});
+
+const setManualStartCount = asyncHandler(async (req, res) => {
+  const order = await orderService.setManualEngagementStartCount(req.params.id, String(req.body.startCount));
+  success(res, order, 'Contagem inicial registrada');
+});
+
 const myEngagementStatus = asyncHandler(async (req, res) => {
   const status = await orderService.getEngagementStatusForOrder(req.params.id, req.user.id);
   success(res, status);
 });
 
-module.exports = { create, myOrders, myOrderDetail, myEngagementStatus, listAdmin, getAdmin };
+module.exports = {
+  create,
+  myOrders,
+  myOrderDetail,
+  myEngagementStatus,
+  listAdmin,
+  getAdmin,
+  completeManually,
+  adminEngagementStatus,
+  setManualStartCount,
+};

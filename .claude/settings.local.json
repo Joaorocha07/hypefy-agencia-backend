@@ -78,7 +78,8 @@
       "Bash(git rm *)",
       "Bash(pkill -f \"node src/server.js\")",
       "Bash(npm uninstall *)",
-      "Bash(xargs ls)"
+      "Bash(xargs ls)",
+      "Bash(xargs grep -l \"OrderChat\")"
     ]
   }
 }

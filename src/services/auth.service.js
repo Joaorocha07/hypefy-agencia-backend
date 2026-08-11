@@ -144,8 +144,13 @@ async function refresh(refreshToken) {
   }
 
   if (stored.revokedAt) {
-    // Reuso de um refresh token já rotacionado — sinal de possível roubo do
-    // token: revoga todas as sessões desse usuário por precaução.
+    // Requisições concorrentes rotacionando o mesmo refresh token (comum: o front
+    // dispara várias chamadas autenticadas em paralelo) caem aqui legitimamente —
+    // devolve o mesmo par já emitido pela rotação original em vez de tratar como
+    // reuso malicioso. Só fora da janela de graça é que revoga tudo por precaução.
+    const graced = refreshTokenService.getGracedRotation(refreshToken);
+    if (graced) return graced;
+
     await refreshTokenService.revokeAllForUser(stored.userId);
     throw new AppError('Refresh token inválido ou expirado', 401);
   }
@@ -153,8 +158,19 @@ async function refresh(refreshToken) {
   const user = await prisma.user.findUnique({ where: { id: payload.sub } });
   if (!user || !user.isActive) throw new AppError('Usuário inválido ou inativo', 401);
 
-  await refreshTokenService.revoke(stored.id);
-  return issueTokens(user);
+  const wonRace = await refreshTokenService.claimForRotation(stored.id);
+  if (!wonRace) {
+    // Outra requisição concorrente já está rotacionando este exato token —
+    // espera o resultado dela em vez de rotacionar de novo (evita colisão de
+    // token_hash e sessões órfãs). Ver claimForRotation.
+    const graced = await refreshTokenService.waitForGracedRotation(refreshToken);
+    if (graced) return graced;
+    throw new AppError('Refresh token inválido ou expirado', 401);
+  }
+
+  const tokens = await issueTokens(user);
+  refreshTokenService.rememberRotation(refreshToken, tokens);
+  return tokens;
 }
 
 async function logout(refreshToken) {
