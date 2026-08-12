@@ -13,7 +13,7 @@ const { startPurgeExpiredRefreshTokensJob } = require('./jobs/purgeExpiredRefres
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`Hypefy Agência API rodando na porta ${PORT}`);
+  console.log(`Hypefy Agência API rodando na porta ${PORT} (commit ${process.env.RENDER_GIT_COMMIT || 'local'})`);
   console.log(`Documentação Swagger: http://localhost:${PORT}/docs`);
 
   startSyncEngagementOrdersJob();
