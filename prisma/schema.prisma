@@ -340,6 +340,33 @@ model ChatMessage {
   @@map("chat_messages")
 }
 
+/**
+ * Contas próprias da agência usadas para revenda de acesso compartilhado (ex:
+ * as N contas do ChatGPT que a equipe possui) — distinto de StockItem, que
+ * modela vagas já atreladas a um Product/venda. Aqui é só um painel de
+ * controle manual do ADM sobre credenciais e ocupação, sem ligação com pedidos.
+ */
+model SharedAccount {
+  id              String    @id @default(uuid())
+  platformName    String    @map("platform_name")
+  label           String?
+  email           String
+  // Criptografado (AES-256-GCM, ver src/utils/crypto.js) — nunca texto puro no
+  // banco, mas recuperável para exibição ao ADM (não é hash).
+  passwordEnc     String    @map("password_enc")
+  // Data do último pagamento do plano — usada para calcular nextBillingDate
+  // (lastPaymentDate + 30 dias) em sharedAccount.service.js. Null até o
+  // primeiro pagamento ser registrado.
+  lastPaymentDate DateTime? @map("last_payment_date")
+  loggedInCount   Int       @default(0) @map("logged_in_count")
+  notes           String?   @db.Text
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@map("shared_accounts")
+}
+
 model Review {
   id             String    @id @default(uuid())
   productId      String    @map("product_id")

@@ -15,6 +15,7 @@ const dashboardRoutes = require('./dashboard.routes');
 const webhookRoutes = require('./webhook.routes');
 const reviewRoutes = require('./review.routes');
 const lgpdRoutes = require('./lgpd.routes');
+const sharedAccountRoutes = require('./sharedAccount.routes');
 
 const router = Router();
 
@@ -33,5 +34,6 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/webhooks', webhookRoutes);
 router.use('/reviews', reviewRoutes);
 router.use('/lgpd', lgpdRoutes);
+router.use('/shared-accounts', sharedAccountRoutes);
 
 module.exports = router;

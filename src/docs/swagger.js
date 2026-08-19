@@ -34,6 +34,7 @@ const options = {
       { name: 'Dashboard', description: 'Faturamento e relatórios financeiros (ADM only)' },
       { name: 'Webhooks', description: 'Notificações de sistemas externos' },
       { name: 'Reviews', description: 'Avaliações de produtos e respostas do suporte (ADM/FUNC)' },
+      { name: 'Shared Accounts', description: 'Controle de contas compartilhadas da agência (credenciais + ocupação) — ADM only' },
     ],
     components: {
       securitySchemes: {
@@ -243,6 +244,24 @@ const options = {
             message: { type: 'string' },
             isDelivery: { type: 'boolean' },
             createdAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        SharedAccount: {
+          type: 'object',
+          description: 'Conta própria da agência para revenda de acesso compartilhado (ex: uma das contas do ChatGPT) — ADM only.',
+          properties: {
+            id: { type: 'string', format: 'uuid' },
+            platformName: { type: 'string', example: 'ChatGPT' },
+            label: { type: 'string', nullable: true, example: 'Conta 1' },
+            email: { type: 'string', format: 'email' },
+            password: { type: 'string', description: 'Descriptografada — visível somente para ADM' },
+            loggedInCount: { type: 'integer' },
+            lastPaymentDate: { type: 'string', format: 'date-time', nullable: true, description: 'Dia em que o plano foi pago' },
+            nextBillingDate: { type: 'string', format: 'date-time', nullable: true, description: 'Calculado: lastPaymentDate + 30 dias' },
+            notes: { type: 'string', nullable: true },
+            isActive: { type: 'boolean' },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
           },
         },
         PaginatedResult: {

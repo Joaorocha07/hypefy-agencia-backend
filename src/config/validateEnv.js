@@ -30,6 +30,15 @@ function validateEnv() {
     problems.push('JWT_SECRET e JWT_REFRESH_SECRET não podem ser iguais.');
   }
 
+  // Usada por src/utils/crypto.js (AES-256-GCM) para criptografar as senhas
+  // de SharedAccount de forma reversível — precisa ser exatamente 32 bytes.
+  const accountKey = process.env.ACCOUNT_SECRET_KEY;
+  if (!accountKey) {
+    problems.push('ACCOUNT_SECRET_KEY não está definida.');
+  } else if (!/^[0-9a-fA-F]{64}$/.test(accountKey)) {
+    problems.push('ACCOUNT_SECRET_KEY deve ter exatamente 64 caracteres hexadecimais (32 bytes).');
+  }
+
   if (problems.length > 0) {
     throw new Error(
       'Configuração de ambiente insegura:\n' +
