@@ -2,9 +2,6 @@ const prisma = require('../config/db');
 const AppError = require('../utils/appError');
 const { encrypt, decrypt } = require('../utils/crypto');
 
-const BILLING_CYCLE_DAYS = 30;
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 function serializeAccount(account) {
   return {
     id: account.id,
@@ -14,9 +11,7 @@ function serializeAccount(account) {
     password: decrypt(account.passwordEnc),
     loggedInCount: account.loggedInCount,
     lastPaymentDate: account.lastPaymentDate,
-    // Derivado (não persistido): lastPaymentDate + 30 dias — a data de
-    // cobrança prevista do próximo ciclo do plano.
-    nextBillingDate: account.lastPaymentDate ? new Date(account.lastPaymentDate.getTime() + BILLING_CYCLE_DAYS * DAY_MS) : null,
+    dueDate: account.dueDate,
     notes: account.notes,
     isActive: account.isActive,
     createdAt: account.createdAt,
@@ -37,7 +32,7 @@ async function getAccountById(id) {
   return account;
 }
 
-async function createAccount({ platformName, label, email, password, loggedInCount, lastPaymentDate, notes }) {
+async function createAccount({ platformName, label, email, password, loggedInCount, lastPaymentDate, dueDate, notes }) {
   const account = await prisma.sharedAccount.create({
     data: {
       platformName,
@@ -46,13 +41,14 @@ async function createAccount({ platformName, label, email, password, loggedInCou
       passwordEnc: encrypt(password),
       loggedInCount: loggedInCount ?? 0,
       lastPaymentDate: lastPaymentDate ? new Date(lastPaymentDate) : null,
+      dueDate: dueDate ? new Date(dueDate) : null,
       notes: notes || null,
     },
   });
   return serializeAccount(account);
 }
 
-async function updateAccount(id, { platformName, label, email, password, loggedInCount, lastPaymentDate, notes, isActive }) {
+async function updateAccount(id, { platformName, label, email, password, loggedInCount, lastPaymentDate, dueDate, notes, isActive }) {
   await getAccountById(id);
 
   const data = {};
@@ -62,6 +58,7 @@ async function updateAccount(id, { platformName, label, email, password, loggedI
   if (password) data.passwordEnc = encrypt(password);
   if (loggedInCount !== undefined) data.loggedInCount = loggedInCount;
   if (lastPaymentDate !== undefined) data.lastPaymentDate = lastPaymentDate ? new Date(lastPaymentDate) : null;
+  if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;
   if (notes !== undefined) data.notes = notes || null;
   if (isActive !== undefined) data.isActive = isActive;
 

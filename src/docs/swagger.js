@@ -257,7 +257,7 @@ const options = {
             password: { type: 'string', description: 'Descriptografada — visível somente para ADM' },
             loggedInCount: { type: 'integer' },
             lastPaymentDate: { type: 'string', format: 'date-time', nullable: true, description: 'Dia em que o plano foi pago' },
-            nextBillingDate: { type: 'string', format: 'date-time', nullable: true, description: 'Calculado: lastPaymentDate + 30 dias' },
+            dueDate: { type: 'string', format: 'date-time', nullable: true, description: 'Dia de vencimento da próxima cobrança, cadastrado manualmente' },
             notes: { type: 'string', nullable: true },
             isActive: { type: 'boolean' },
             createdAt: { type: 'string', format: 'date-time' },

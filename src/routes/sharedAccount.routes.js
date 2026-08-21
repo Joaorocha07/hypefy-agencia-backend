@@ -36,7 +36,8 @@ router.use(authenticate, authorize('ADM'));
  *               email: { type: string, format: email }
  *               password: { type: string }
  *               loggedInCount: { type: integer, minimum: 0, default: 0 }
- *               lastPaymentDate: { type: string, format: date, nullable: true, description: 'Dia em que o plano foi pago — usado para calcular nextBillingDate (+30 dias)' }
+ *               lastPaymentDate: { type: string, format: date, nullable: true, description: 'Dia em que o plano foi pago' }
+ *               dueDate: { type: string, format: date, nullable: true, description: 'Dia de vencimento da próxima cobrança' }
  *               notes: { type: string, nullable: true }
  *     responses:
  *       201:
@@ -72,6 +73,7 @@ router.post('/', validate(createSharedAccountSchema), controller.create);
  *               password: { type: string, description: 'Omitir para manter a senha atual' }
  *               loggedInCount: { type: integer, minimum: 0 }
  *               lastPaymentDate: { type: string, format: date, nullable: true }
+ *               dueDate: { type: string, format: date, nullable: true }
  *               notes: { type: string, nullable: true }
  *               isActive: { type: boolean }
  *     responses:

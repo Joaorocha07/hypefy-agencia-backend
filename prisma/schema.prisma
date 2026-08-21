@@ -354,10 +354,11 @@ model SharedAccount {
   // Criptografado (AES-256-GCM, ver src/utils/crypto.js) — nunca texto puro no
   // banco, mas recuperável para exibição ao ADM (não é hash).
   passwordEnc     String    @map("password_enc")
-  // Data do último pagamento do plano — usada para calcular nextBillingDate
-  // (lastPaymentDate + 30 dias) em sharedAccount.service.js. Null até o
-  // primeiro pagamento ser registrado.
+  // Data do último pagamento do plano. Null até o primeiro pagamento ser registrado.
   lastPaymentDate DateTime? @map("last_payment_date")
+  // Data de vencimento da próxima cobrança — cadastrada manualmente pelo ADM
+  // (não é derivada de lastPaymentDate, já que o ciclo pode variar).
+  dueDate         DateTime? @map("due_date")
   loggedInCount   Int       @default(0) @map("logged_in_count")
   notes           String?   @db.Text
   isActive        Boolean   @default(true) @map("is_active")

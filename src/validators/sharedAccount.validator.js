@@ -12,6 +12,7 @@ const createSharedAccountSchema = z.object({
     password: z.string().min(1),
     loggedInCount: z.number().int().min(0).optional(),
     lastPaymentDate: dateStringSchema.optional(),
+    dueDate: dateStringSchema.optional(),
     notes: z.string().optional(),
   }),
 });
@@ -25,6 +26,7 @@ const updateSharedAccountSchema = z.object({
     password: z.string().optional(),
     loggedInCount: z.number().int().min(0).optional(),
     lastPaymentDate: dateStringSchema.optional(),
+    dueDate: dateStringSchema.optional(),
     notes: z.string().optional(),
     isActive: z.boolean().optional(),
   }),
