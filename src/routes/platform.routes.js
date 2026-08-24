@@ -2,10 +2,12 @@ const { Router } = require('express');
 const controller = require('../controllers/platform.controller');
 const validate = require('../middlewares/validate');
 const upload = require('../middlewares/upload');
-const { authenticate, authorize } = require('../middlewares/auth');
+const { authenticate, authorize, attachMenu } = require('../middlewares/auth');
 const { createPlatformSchema, updatePlatformSchema } = require('../validators/platform.validator');
 
 const router = Router();
+
+router.use(attachMenu('plataformas'));
 
 /**
  * @swagger

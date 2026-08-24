@@ -1,13 +1,14 @@
 const { Router } = require('express');
 const controller = require('../controllers/dashboard.controller');
 const validate = require('../middlewares/validate');
-const { authenticate, authorize } = require('../middlewares/auth');
+const { authenticate, authorize, attachMenu } = require('../middlewares/auth');
 const { summarySchema, reportSchema } = require('../validators/dashboard.validator');
 
 const router = Router();
 
 // Faturamento/lucro são exclusivos do ADM (FUNC não pode ver relatórios financeiros)
-router.use(authenticate, authorize('ADM'));
+// — SOCIO entra se tiver o menu "dashboard" liberado (ver authorize/attachMenu).
+router.use(authenticate, attachMenu('dashboard'), authorize('ADM'));
 
 /**
  * @swagger

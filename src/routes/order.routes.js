@@ -1,13 +1,13 @@
 const { Router } = require('express');
 const controller = require('../controllers/order.controller');
 const validate = require('../middlewares/validate');
-const { authenticate, authorize } = require('../middlewares/auth');
+const { authenticate, authorize, attachMenu } = require('../middlewares/auth');
 const { paymentRateLimiter } = require('../middlewares/rateLimit');
 const { createOrderSchema, listOrdersSchema, setManualStartCountSchema } = require('../validators/order.validator');
 
 const router = Router();
 
-router.use(authenticate);
+router.use(authenticate, attachMenu('pedidos'));
 
 /**
  * @swagger

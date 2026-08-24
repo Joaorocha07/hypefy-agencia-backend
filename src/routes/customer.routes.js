@@ -2,11 +2,11 @@ const { Router } = require('express');
 const controller = require('../controllers/customer.controller');
 const validate = require('../middlewares/validate');
 const { listCustomersSchema } = require('../validators/customer.validator');
-const { authenticate, authorize } = require('../middlewares/auth');
+const { authenticate, authorize, attachMenu } = require('../middlewares/auth');
 
 const router = Router();
 
-router.use(authenticate, authorize('ADM', 'FUNC'));
+router.use(authenticate, attachMenu('clientes'), authorize('ADM', 'FUNC'));
 
 /**
  * @swagger

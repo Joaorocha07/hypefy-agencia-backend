@@ -1,13 +1,13 @@
 const { Router } = require('express');
 const controller = require('../controllers/employee.controller');
 const validate = require('../middlewares/validate');
-const { authenticate, authorize } = require('../middlewares/auth');
+const { authenticate, authorize, attachMenu } = require('../middlewares/auth');
 const { createEmployeeSchema, setActiveSchema } = require('../validators/employee.validator');
 
 const router = Router();
 
 // Gestão de funcionários é exclusiva do ADM
-router.use(authenticate, authorize('ADM'));
+router.use(authenticate, attachMenu('funcionarios'), authorize('ADM'));
 
 /**
  * @swagger

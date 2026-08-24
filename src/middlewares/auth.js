@@ -17,7 +17,13 @@ async function authenticate(req, res, next) {
       throw new AppError('Usuário inválido ou inativo', 401);
     }
 
-    req.user = { id: user.id, email: user.email, role: user.role };
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      allowedMenus: user.allowedMenus,
+      financialVisibleFrom: user.financialVisibleFrom,
+    };
     next();
   } catch (err) {
     next(err);
@@ -46,13 +52,42 @@ async function optionalAuthenticate(req, res, next) {
   }
 }
 
-function authorize(...allowedRoles) {
+/**
+ * Marca qual menu administrativo (ver src/utils/menus.js) a rota abaixo pertence
+ * a — não bloqueia nada sozinho, só grava req.menuKey para o authorize() usar
+ * no bypass de SOCIO logo abaixo.
+ */
+function attachMenu(menuKey) {
   return (req, res, next) => {
-    if (!req.user || !allowedRoles.includes(req.user.role)) {
-      return next(new AppError('Acesso negado: privilégio insuficiente', 403));
-    }
+    req.menuKey = menuKey;
     next();
   };
 }
 
-module.exports = { authenticate, optionalAuthenticate, authorize };
+function authorize(...allowedRoles) {
+  return (req, res, next) => {
+    const role = req.user?.role;
+    if (!role) {
+      return next(new AppError('Acesso negado: privilégio insuficiente', 403));
+    }
+
+    if (allowedRoles.includes(role)) return next();
+
+    // SOCIO herda qualquer verificação que exigiria ADM, mas só para o menu
+    // que o admin master liberou para essa conta (req.menuKey, setado por
+    // attachMenu no topo do arquivo de rotas) — dá acesso "completo" de ADM
+    // dentro do menu liberado, sem duplicar regra de negócio por rota.
+    if (
+      role === 'SOCIO' &&
+      allowedRoles.includes('ADM') &&
+      req.menuKey &&
+      req.user.allowedMenus?.includes(req.menuKey)
+    ) {
+      return next();
+    }
+
+    return next(new AppError('Acesso negado: privilégio insuficiente', 403));
+  };
+}
+
+module.exports = { authenticate, optionalAuthenticate, authorize, attachMenu };

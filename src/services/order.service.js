@@ -641,7 +641,15 @@ const ADMIN_ORDER_LIST_SELECT = {
   user: { select: { id: true, name: true, email: true } },
 };
 
-async function listAllOrders({ paymentStatus, orderStatus, page = 1, limit = 20 } = {}) {
+// Para SOCIO com financialVisibleFrom definido: pedidos anteriores à data têm
+// os valores em dinheiro ocultos (null), mas seguem visíveis/operáveis para
+// tudo o mais (status, produto, cliente) — o corte é só sobre o faturamento.
+function maskOrderValues(order, hideValuesBefore) {
+  if (!hideValuesBefore || new Date(order.createdAt) >= hideValuesBefore) return order;
+  return { ...order, unitPrice: null, totalPrice: null, discountAmount: null };
+}
+
+async function listAllOrders({ paymentStatus, orderStatus, page = 1, limit = 20 } = {}, hideValuesBefore = null) {
   const where = {
     ...(paymentStatus && { paymentStatus }),
     ...(orderStatus && { orderStatus }),
@@ -657,10 +665,16 @@ async function listAllOrders({ paymentStatus, orderStatus, page = 1, limit = 20 
     }),
     prisma.order.count({ where }),
   ]);
-  return { items, total, page, limit, pages: Math.ceil(total / limit) };
+  return {
+    items: items.map((item) => maskOrderValues(item, hideValuesBefore)),
+    total,
+    page,
+    limit,
+    pages: Math.ceil(total / limit),
+  };
 }
 
-async function getOrderAdmin(orderId) {
+async function getOrderAdmin(orderId, hideValuesBefore = null) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: {
@@ -673,7 +687,7 @@ async function getOrderAdmin(orderId) {
   const engagementStatus =
     order.product.category.name === 'ENGAJAMENTO' ? await getStoredEngagementStatus(order.id) : null;
 
-  return { ...order, engagementStatus };
+  return maskOrderValues({ ...order, engagementStatus }, hideValuesBefore);
 }
 
 // Preenchido pela equipe quando o pedido foi entregue fora do fluxo automático

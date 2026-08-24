@@ -1,12 +1,12 @@
 const { Router } = require('express');
 const controller = require('../controllers/sharedAccount.controller');
 const validate = require('../middlewares/validate');
-const { authenticate, authorize } = require('../middlewares/auth');
+const { authenticate, authorize, attachMenu } = require('../middlewares/auth');
 const { createSharedAccountSchema, updateSharedAccountSchema } = require('../validators/sharedAccount.validator');
 
 const router = Router();
 
-router.use(authenticate, authorize('ADM'));
+router.use(authenticate, attachMenu('contas'), authorize('ADM'));
 
 /**
  * @swagger

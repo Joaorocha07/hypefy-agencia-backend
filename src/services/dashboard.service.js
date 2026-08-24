@@ -21,8 +21,28 @@ function periodStartDate(period) {
   }
 }
 
-async function getSummary(period = 'month') {
-  const startDate = periodStartDate(period);
+// Compartilhado pelo resumo do Dashboard e pelo cálculo de repasse de sócio
+// (partner.service.js) — receita/custo/reembolso somados a partir de sinceDate
+// (null = desde sempre).
+async function getNetProfitSince(sinceDate = null) {
+  const where = sinceDate ? { createdAt: { gte: sinceDate } } : {};
+
+  const [salesAgg, costAgg, refundAgg] = await Promise.all([
+    prisma.transaction.aggregate({ where: { type: 'SALE', ...where }, _sum: { amount: true } }),
+    prisma.transaction.aggregate({ where: { type: 'COST', ...where }, _sum: { amount: true } }),
+    prisma.transaction.aggregate({ where: { type: 'REFUND', ...where }, _sum: { amount: true } }),
+  ]);
+
+  const revenue = Number(salesAgg._sum.amount || 0);
+  const costs = Number(costAgg._sum.amount || 0);
+  const refunds = Number(refundAgg._sum.amount || 0);
+
+  return { revenue, costs, refunds, netProfit: revenue - costs - refunds };
+}
+
+async function getSummary(period = 'month', visibleFrom = null) {
+  let startDate = periodStartDate(period);
+  if (visibleFrom && visibleFrom > startDate) startDate = visibleFrom;
 
   const paidOrders = await prisma.order.findMany({
     where: { paymentStatus: 'PAID', createdAt: { gte: startDate } },
@@ -33,25 +53,7 @@ async function getSummary(period = 'month') {
   const orderCount = paidOrders.length;
   const averageTicket = orderCount > 0 ? totalSales / orderCount : 0;
 
-  const [salesAgg, costAgg, refundAgg] = await Promise.all([
-    prisma.transaction.aggregate({
-      where: { type: 'SALE', createdAt: { gte: startDate } },
-      _sum: { amount: true },
-    }),
-    prisma.transaction.aggregate({
-      where: { type: 'COST', createdAt: { gte: startDate } },
-      _sum: { amount: true },
-    }),
-    prisma.transaction.aggregate({
-      where: { type: 'REFUND', createdAt: { gte: startDate } },
-      _sum: { amount: true },
-    }),
-  ]);
-
-  const revenue = Number(salesAgg._sum.amount || 0);
-  const costs = Number(costAgg._sum.amount || 0);
-  const refunds = Number(refundAgg._sum.amount || 0);
-  const netProfit = revenue - costs - refunds;
+  const { revenue, costs, refunds, netProfit } = await getNetProfitSince(startDate);
 
   return {
     period,
@@ -66,12 +68,17 @@ async function getSummary(period = 'month') {
   };
 }
 
-async function getDetailedReport({ startDate, endDate, productId, userId }) {
+async function getDetailedReport({ startDate, endDate, productId, userId }, visibleFrom = null) {
+  let effectiveStartDate = startDate ? new Date(startDate) : null;
+  if (visibleFrom && (!effectiveStartDate || visibleFrom > effectiveStartDate)) {
+    effectiveStartDate = visibleFrom;
+  }
+
   const where = {
     paymentStatus: 'PAID',
-    ...(startDate && { createdAt: { gte: new Date(startDate) } }),
+    ...(effectiveStartDate && { createdAt: { gte: effectiveStartDate } }),
     ...(endDate && {
-      createdAt: { ...(startDate && { gte: new Date(startDate) }), lte: new Date(endDate) },
+      createdAt: { ...(effectiveStartDate && { gte: effectiveStartDate }), lte: new Date(endDate) },
     }),
     ...(productId && { productId }),
     ...(userId && { userId }),
@@ -91,4 +98,4 @@ async function getDetailedReport({ startDate, endDate, productId, userId }) {
   return { orders, totalRevenue, count: orders.length };
 }
 
-module.exports = { getSummary, getDetailedReport };
+module.exports = { getSummary, getDetailedReport, getNetProfitSince };

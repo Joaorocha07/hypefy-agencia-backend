@@ -1,10 +1,12 @@
 const { Router } = require('express');
 const controller = require('../controllers/category.controller');
 const validate = require('../middlewares/validate');
-const { authenticate, authorize } = require('../middlewares/auth');
+const { authenticate, authorize, attachMenu } = require('../middlewares/auth');
 const { createCategorySchema, updateCategorySchema, reorderCategoriesSchema } = require('../validators/category.validator');
 
 const router = Router();
+
+router.use(attachMenu('categorias'));
 
 /**
  * @swagger

@@ -9,6 +9,7 @@ datasource db {
 enum UserRole {
   ADM
   FUNC
+  SOCIO
   USER
 }
 
@@ -65,6 +66,16 @@ model User {
   // cada login bem-sucedido. Não se aplica ao login via Google (não usa senha).
   failedLoginAttempts  Int       @default(0) @map("failed_login_attempts")
   lockedUntil          DateTime? @map("locked_until")
+  // Chaves dos menus administrativos liberados para role SOCIO (ver src/utils/menus.js) —
+  // ignorado para ADM/FUNC/USER, cujo acesso continua fixo pela role.
+  allowedMenus         String[]  @default([]) @map("allowed_menus")
+  // Para role SOCIO: pedidos e faturamento anteriores a esta data ficam ocultos
+  // (Dashboard e Pedidos). Null = sem restrição de data.
+  financialVisibleFrom DateTime? @map("financial_visible_from")
+  // Para role SOCIO: % do lucro líquido (ver dashboard.service.js#getNetProfitSince)
+  // que cabe a esse sócio — usado só para calcular o valor de repasse exibido em
+  // /admin/socios, não afeta nenhum pagamento automático.
+  profitSharePercent   Decimal   @default(0) @map("profit_share_percent") @db.Decimal(5, 2)
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
 

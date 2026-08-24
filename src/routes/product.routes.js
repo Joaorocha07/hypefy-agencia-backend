@@ -3,7 +3,7 @@ const controller = require('../controllers/product.controller');
 const reviewController = require('../controllers/review.controller');
 const validate = require('../middlewares/validate');
 const upload = require('../middlewares/upload');
-const { authenticate, optionalAuthenticate, authorize } = require('../middlewares/auth');
+const { authenticate, optionalAuthenticate, authorize, attachMenu } = require('../middlewares/auth');
 const {
   createProductSchema,
   updateProductSchema,
@@ -15,6 +15,8 @@ const {
 const { listReviewsSchema, upsertReviewSchema } = require('../validators/review.validator');
 
 const router = Router();
+
+router.use(attachMenu('produtos'));
 
 /**
  * @swagger

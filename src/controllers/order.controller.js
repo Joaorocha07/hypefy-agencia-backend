@@ -17,13 +17,19 @@ const myOrderDetail = asyncHandler(async (req, res) => {
   success(res, order);
 });
 
+// Sócio só enxerga valores de pedidos a partir da data configurada pelo
+// admin master (req.user.financialVisibleFrom) — ADM/FUNC não têm esse corte.
+function hideValuesBeforeFor(req) {
+  return req.user.role === 'SOCIO' ? req.user.financialVisibleFrom : null;
+}
+
 const listAdmin = asyncHandler(async (req, res) => {
-  const result = await orderService.listAllOrders(req.query);
+  const result = await orderService.listAllOrders(req.query, hideValuesBeforeFor(req));
   success(res, result);
 });
 
 const getAdmin = asyncHandler(async (req, res) => {
-  const order = await orderService.getOrderAdmin(req.params.id);
+  const order = await orderService.getOrderAdmin(req.params.id, hideValuesBeforeFor(req));
   success(res, order);
 });
 

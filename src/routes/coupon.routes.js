@@ -1,13 +1,13 @@
 const { Router } = require('express');
 const controller = require('../controllers/coupon.controller');
 const validate = require('../middlewares/validate');
-const { authenticate, authorize } = require('../middlewares/auth');
+const { authenticate, authorize, attachMenu } = require('../middlewares/auth');
 const { createCouponSchema, updateCouponSchema } = require('../validators/coupon.validator');
 
 const router = Router();
 
 // Cupons são exclusivos do ADM (FUNC não pode criar/editar/gerenciar)
-router.use(authenticate, authorize('ADM'));
+router.use(authenticate, attachMenu('cupons'), authorize('ADM'));
 
 /**
  * @swagger

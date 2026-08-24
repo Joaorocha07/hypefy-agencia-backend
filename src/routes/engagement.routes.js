@@ -1,12 +1,12 @@
 const { Router } = require('express');
 const controller = require('../controllers/engagement.controller');
 const validate = require('../middlewares/validate');
-const { authenticate, authorize } = require('../middlewares/auth');
+const { authenticate, authorize, attachMenu } = require('../middlewares/auth');
 const { setMarginSchema } = require('../validators/engagement.validator');
 
 const router = Router();
 
-router.use(authenticate, authorize('ADM', 'FUNC'));
+router.use(authenticate, attachMenu('engajamento'), authorize('ADM', 'FUNC'));
 
 /**
  * @swagger

@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const controller = require('../controllers/stock.controller');
 const validate = require('../middlewares/validate');
-const { authenticate, authorize } = require('../middlewares/auth');
+const { authenticate, authorize, attachMenu } = require('../middlewares/auth');
 const {
   addStockItemsSchema,
   listStockItemsSchema,
@@ -14,7 +14,7 @@ const {
 
 const router = Router();
 
-router.use(authenticate, authorize('ADM', 'FUNC'));
+router.use(authenticate, attachMenu('estoque'), authorize('ADM', 'FUNC'));
 
 /**
  * @swagger

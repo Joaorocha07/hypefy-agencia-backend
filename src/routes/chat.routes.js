@@ -106,7 +106,7 @@ router.post('/read-all', controller.markAllRead);
  *                           createdAt: { type: string, format: date-time }
  *       403: { $ref: '#/components/responses/Forbidden' }
  */
-router.get('/admin/notifications', authorize('ADM', 'FUNC'), controller.staffNotifications);
+router.get('/admin/notifications', authorize('ADM', 'FUNC', 'SOCIO'), controller.staffNotifications);
 
 /**
  * @swagger
@@ -126,7 +126,7 @@ router.get('/admin/notifications', authorize('ADM', 'FUNC'), controller.staffNot
  *                   properties: { data: { type: object, properties: { count: { type: integer } } } }
  *       403: { $ref: '#/components/responses/Forbidden' }
  */
-router.get('/admin/unread-count', authorize('ADM', 'FUNC'), controller.staffUnreadCount);
+router.get('/admin/unread-count', authorize('ADM', 'FUNC', 'SOCIO'), controller.staffUnreadCount);
 
 /**
  * @swagger
@@ -142,7 +142,7 @@ router.get('/admin/unread-count', authorize('ADM', 'FUNC'), controller.staffUnre
  *             schema: { $ref: '#/components/schemas/ApiResponse' }
  *       403: { $ref: '#/components/responses/Forbidden' }
  */
-router.post('/admin/read-all', authorize('ADM', 'FUNC'), controller.staffMarkAllRead);
+router.post('/admin/read-all', authorize('ADM', 'FUNC', 'SOCIO'), controller.staffMarkAllRead);
 
 /**
  * @swagger

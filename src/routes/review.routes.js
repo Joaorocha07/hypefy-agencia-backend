@@ -1,10 +1,13 @@
 const { Router } = require('express');
 const controller = require('../controllers/review.controller');
 const validate = require('../middlewares/validate');
-const { authenticate, authorize } = require('../middlewares/auth');
+const { authenticate, authorize, attachMenu } = require('../middlewares/auth');
 const { adminReplySchema } = require('../validators/review.validator');
 
 const router = Router();
+
+// Respostas de review são geridas junto do menu "produtos".
+router.use(attachMenu('produtos'));
 
 /**
  * @swagger
