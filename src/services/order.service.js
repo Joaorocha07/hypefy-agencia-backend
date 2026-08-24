@@ -641,18 +641,12 @@ const ADMIN_ORDER_LIST_SELECT = {
   user: { select: { id: true, name: true, email: true } },
 };
 
-// Para SOCIO com financialVisibleFrom definido: pedidos anteriores à data têm
-// os valores em dinheiro ocultos (null), mas seguem visíveis/operáveis para
-// tudo o mais (status, produto, cliente) — o corte é só sobre o faturamento.
-function maskOrderValues(order, hideValuesBefore) {
-  if (!hideValuesBefore || new Date(order.createdAt) >= hideValuesBefore) return order;
-  return { ...order, unitPrice: null, totalPrice: null, discountAmount: null };
-}
 
 async function listAllOrders({ paymentStatus, orderStatus, page = 1, limit = 20 } = {}, hideValuesBefore = null) {
   const where = {
     ...(paymentStatus && { paymentStatus }),
     ...(orderStatus && { orderStatus }),
+    ...(hideValuesBefore && { createdAt: { gte: new Date(hideValuesBefore) } }),
   };
 
   const [items, total] = await Promise.all([
@@ -666,7 +660,7 @@ async function listAllOrders({ paymentStatus, orderStatus, page = 1, limit = 20 
     prisma.order.count({ where }),
   ]);
   return {
-    items: items.map((item) => maskOrderValues(item, hideValuesBefore)),
+    items,
     total,
     page,
     limit,
@@ -684,10 +678,14 @@ async function getOrderAdmin(orderId, hideValuesBefore = null) {
   });
   if (!order) throw new AppError('Pedido não encontrado', 404);
 
+  if (hideValuesBefore && new Date(order.createdAt) < new Date(hideValuesBefore)) {
+    throw new AppError('Pedido não encontrado', 404);
+  }
+
   const engagementStatus =
     order.product.category.name === 'ENGAJAMENTO' ? await getStoredEngagementStatus(order.id) : null;
 
-  return maskOrderValues({ ...order, engagementStatus }, hideValuesBefore);
+  return { ...order, engagementStatus };
 }
 
 // Preenchido pela equipe quando o pedido foi entregue fora do fluxo automático
