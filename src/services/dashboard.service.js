@@ -1,23 +1,33 @@
 const prisma = require('../config/db');
 
+// BRT = UTC-3 permanente desde abril/2019 (horário de verão abolido).
+const BR_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+// Meia-noite de (y, m, d) em BRT equivale a 03:00 UTC do mesmo dia.
+function midnightBR(y, m, d) {
+  return new Date(Date.UTC(y, m, d, 3, 0, 0));
+}
+
 function periodStartDate(period) {
-  const now = new Date();
+  // Desloca "agora" 3h para trás para obter a data-calendário correta em BRT.
+  const brNow = new Date(Date.now() - BR_OFFSET_MS);
+  const y = brNow.getUTCFullYear();
+  const m = brNow.getUTCMonth();
+  const d = brNow.getUTCDate();
+
   switch (period) {
     case 'day':
-      return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return midnightBR(y, m, d);
     case 'week': {
-      const d = new Date(now);
-      const day = d.getDay();
-      d.setDate(d.getDate() - day);
-      d.setHours(0, 0, 0, 0);
-      return d;
+      const dow = brNow.getUTCDay(); // 0 = domingo
+      return new Date(midnightBR(y, m, d).getTime() - dow * 86_400_000);
     }
     case 'month':
-      return new Date(now.getFullYear(), now.getMonth(), 1);
+      return midnightBR(y, m, 1);
     case 'year':
-      return new Date(now.getFullYear(), 0, 1);
+      return midnightBR(y, 0, 1);
     default:
-      return new Date(now.getFullYear(), now.getMonth(), 1);
+      return midnightBR(y, m, 1);
   }
 }
 
