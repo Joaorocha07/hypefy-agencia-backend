@@ -1,6 +1,7 @@
 const asyncHandler = require('../utils/asyncHandler');
 const paymentService = require('../services/payment.service');
 const orderService = require('../services/order.service');
+const cartService = require('../services/cart.service');
 const { PAID_ORDER_STATUSES, FAILED_ORDER_STATUSES } = orderService;
 const prisma = require('../config/db');
 
@@ -14,14 +15,31 @@ const handleMercadoPago = asyncHandler(async (req, res) => {
 
     if (type === 'order' && dataId) {
       const mpOrder = await paymentService.getOrder(dataId);
+
       const order = await prisma.order.findFirst({
         where: { mercadoPagoPaymentId: String(dataId) },
       });
 
-      if (order && PAID_ORDER_STATUSES.includes(mpOrder.status) && order.paymentStatus !== 'PAID') {
-        await orderService.markOrderAsPaid(order.id);
-      } else if (order && FAILED_ORDER_STATUSES.includes(mpOrder.status)) {
-        await orderService.markOrderAsFailed(order.id);
+      if (order) {
+        if (PAID_ORDER_STATUSES.includes(mpOrder.status) && order.paymentStatus !== 'PAID') {
+          await orderService.markOrderAsPaid(order.id);
+        } else if (FAILED_ORDER_STATUSES.includes(mpOrder.status)) {
+          await orderService.markOrderAsFailed(order.id);
+        }
+      } else {
+        // Compra direta de 1 produto não achou nada — pode ser o pagamento
+        // combinado de um checkout de carrinho (ver cart.service.js).
+        const cartOrder = await prisma.cartOrder.findFirst({
+          where: { mercadoPagoPaymentId: String(dataId) },
+        });
+
+        if (cartOrder) {
+          if (PAID_ORDER_STATUSES.includes(mpOrder.status) && cartOrder.paymentStatus !== 'PAID') {
+            await cartService.markCartOrderAsPaid(cartOrder.id);
+          } else if (FAILED_ORDER_STATUSES.includes(mpOrder.status)) {
+            await cartService.markCartOrderAsFailed(cartOrder.id);
+          }
+        }
       }
     }
   } catch (err) {

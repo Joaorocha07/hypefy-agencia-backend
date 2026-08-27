@@ -82,6 +82,7 @@ model User {
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
   orders                Order[]
+  cartOrders            CartOrder[]
   soldStockItems        StockItem[]        @relation("StockSoldToUser")
   editedStockItems      StockItem[]        @relation("StockItemLastEditedBy")
   accessUpdateLogs      AccessUpdateLog[]
@@ -293,11 +294,17 @@ model Order {
   deliveredContent        String?       @map("delivered_content") @db.Text
   customerLastReadAt      DateTime?     @map("customer_last_read_at")
   staffLastReadAt         DateTime?     @map("staff_last_read_at")
+  // Preenchido quando este pedido é uma das linhas de um checkout de carrinho
+  // (ver CartOrder) — null para compras diretas de 1 produto (fluxo de sempre).
+  // O pedido em si continua sendo tratado igual em tudo (estoque, entrega,
+  // chat, dashboard); só o pagamento é feito em conjunto pelo CartOrder pai.
+  cartOrderId             String?       @map("cart_order_id")
   createdAt               DateTime      @default(now()) @map("created_at")
   updatedAt               DateTime      @updatedAt @map("updated_at")
 
   user         User          @relation(fields: [userId], references: [id])
   product      Product       @relation(fields: [productId], references: [id])
+  cartOrder    CartOrder?    @relation(fields: [cartOrderId], references: [id])
   transactions Transaction[]
   chatMessages ChatMessage[]
   stockItems   StockItem[]
@@ -306,7 +313,42 @@ model Order {
   @@index([productId])
   @@index([paymentStatus])
   @@index([createdAt])
+  @@index([cartOrderId])
   @@map("orders")
+}
+
+/**
+ * "Cabeçalho" de um checkout de carrinho (múltiplos produtos, 1 pagamento só).
+ * Cada produto do carrinho vira uma linha em Order normal (cartOrderId aponta
+ * pra cá) — reaproveita todo o fluxo já existente de estoque/entrega/chat/
+ * dashboard por produto; este model só concentra o pagamento combinado
+ * (PIX ou cartão) e o desconto (cupom ou os 10% automáticos acima de
+ * CART_DISCOUNT_THRESHOLD, o que for maior — nunca os dois somados).
+ */
+model CartOrder {
+  id                      String        @id @default(uuid())
+  userId                  String        @map("user_id")
+  subtotal                Decimal       @db.Decimal(10, 2)
+  discountAmount          Decimal       @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  totalPrice              Decimal       @map("total_price") @db.Decimal(10, 2)
+  // 'CART_THRESHOLD' | 'COUPON' | null — de onde veio discountAmount, só para exibição/relatório.
+  discountSource          String?       @map("discount_source")
+  couponCode              String?       @map("coupon_code")
+  paymentMethod           PaymentMethod @default(PIX) @map("payment_method")
+  paymentStatus           PaymentStatus @default(PENDING) @map("payment_status")
+  mercadoPagoPaymentId    String?       @map("mercado_pago_payment_id")
+  mercadoPagoQrCode       String?       @map("mercado_pago_qr_code") @db.Text
+  mercadoPagoQrCodeBase64 String?       @map("mercado_pago_qr_code_base64") @db.Text
+  createdAt               DateTime      @default(now()) @map("created_at")
+  updatedAt               DateTime      @updatedAt @map("updated_at")
+
+  user   User    @relation(fields: [userId], references: [id])
+  orders Order[]
+
+  @@index([userId])
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@map("cart_orders")
 }
 
 /**
