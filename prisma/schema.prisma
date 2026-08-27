@@ -15,6 +15,8 @@ enum UserRole {
 
 enum PaymentMethod {
   PIX
+  CREDIT_CARD
+  DEBIT_CARD
 }
 
 enum PaymentStatus {
@@ -79,13 +81,14 @@ model User {
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
-  orders           Order[]
-  soldStockItems   StockItem[]       @relation("StockSoldToUser")
-  editedStockItems StockItem[]       @relation("StockItemLastEditedBy")
-  accessUpdateLogs AccessUpdateLog[]
-  createdCoupons   Coupon[]          @relation("CouponCreatedBy")
-  reviews          Review[]
-  refreshTokens    RefreshToken[]
+  orders                Order[]
+  soldStockItems        StockItem[]        @relation("StockSoldToUser")
+  editedStockItems      StockItem[]        @relation("StockItemLastEditedBy")
+  accessUpdateLogs      AccessUpdateLog[]
+  createdCoupons        Coupon[]           @relation("CouponCreatedBy")
+  reviews               Review[]
+  refreshTokens         RefreshToken[]
+  registeredPixPayments ManualPixPayment[]
 
   @@map("users")
 }
@@ -168,12 +171,13 @@ model Product {
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
 
-  category         Category          @relation(fields: [categoryId], references: [id])
-  platform         Platform          @relation(fields: [platformId], references: [id])
-  stockItems       StockItem[]
-  orders           Order[]
-  reviews          Review[]
-  accessUpdateLogs AccessUpdateLog[]
+  category          Category           @relation(fields: [categoryId], references: [id])
+  platform          Platform           @relation(fields: [platformId], references: [id])
+  stockItems        StockItem[]
+  orders            Order[]
+  reviews           Review[]
+  accessUpdateLogs  AccessUpdateLog[]
+  manualPixPayments ManualPixPayment[]
 
   @@index([categoryId])
   @@index([platformId])
@@ -303,6 +307,35 @@ model Order {
   @@index([paymentStatus])
   @@index([createdAt])
   @@map("orders")
+}
+
+/**
+ * Venda paga via PIX fora do fluxo do site (cliente pagou direto pra equipe,
+ * sem passar pelo checkout) — cadastrada manualmente por ADM/FUNC/SOCIO só
+ * pra manter o controle financeiro completo. Cria uma Transaction (SALE)
+ * junto, então entra automaticamente na receita/lucro líquido do Dashboard
+ * e no cálculo de repasse de sócio, junto com os pedidos do site.
+ */
+model ManualPixPayment {
+  id             String   @id @default(uuid())
+  customerName   String   @map("customer_name")
+  customerPhone  String   @map("customer_phone")
+  amount         Decimal  @db.Decimal(10, 2)
+  productId      String?  @map("product_id")
+  note           String?  @db.Text
+  // Transaction (SALE) criada junto — mantido em sincronia com amount/descrição
+  // na edição e apagado junto na exclusão, pra nunca deixar receita órfã.
+  transactionId  String   @unique @map("transaction_id")
+  registeredById String   @map("registered_by_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  product      Product? @relation(fields: [productId], references: [id])
+  registeredBy User     @relation(fields: [registeredById], references: [id])
+
+  @@index([productId])
+  @@index([registeredById])
+  @@index([createdAt])
+  @@map("manual_pix_payments")
 }
 
 model Coupon {

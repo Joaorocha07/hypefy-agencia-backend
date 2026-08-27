@@ -2,7 +2,31 @@ const crypto = require('crypto');
 const { orderClient } = require('../config/mercadoPago');
 const AppError = require('../utils/appError');
 
-async function createPixOrder({
+// payment_method da Orders API: bloco muda por método, mas o resto do body
+// (payer, items, config) é igual pra PIX e cartão — ver createMercadoPagoOrder.
+function buildPaymentMethod(paymentMethod, card) {
+  if (paymentMethod === 'CREDIT_CARD') {
+    return {
+      id: card.paymentMethodId,
+      // Precisa bater com o tipo real do cartão tokenizado (cartões aceitam
+      // crédito e débito) — declarar o tipo errado faz o Mercado Pago recusar
+      // o pagamento por divergência entre o token e o payment_method.type.
+      type: card.type === 'debit_card' ? 'debit_card' : 'credit_card',
+      token: card.token,
+      installments: card.installments,
+      issuer_id: card.issuerId || undefined,
+    };
+  }
+
+  return {
+    id: 'pix',
+    type: 'bank_transfer',
+    statement_descriptor: process.env.MP_STATEMENT_DESCRIPTOR || undefined,
+  };
+}
+
+async function createMercadoPagoOrder({
+  paymentMethod = 'PIX',
   amount,
   description,
   payerEmail,
@@ -12,6 +36,7 @@ async function createPixOrder({
   externalReference,
   deviceId,
   items,
+  card,
 }) {
   const totalAmount = Number(amount).toFixed(2);
 
@@ -32,11 +57,7 @@ async function createPixOrder({
         payments: [
           {
             amount: totalAmount,
-            payment_method: {
-              id: 'pix',
-              type: 'bank_transfer',
-              statement_descriptor: process.env.MP_STATEMENT_DESCRIPTOR || undefined,
-            },
+            payment_method: buildPaymentMethod(paymentMethod, card),
           },
         ],
       },
@@ -54,13 +75,13 @@ async function createPixOrder({
     requestOptions: deviceId ? { meliSessionId: deviceId } : undefined,
   });
 
-  const paymentMethod = order.transactions?.payments?.[0]?.payment_method || {};
+  const orderPaymentMethod = order.transactions?.payments?.[0]?.payment_method || {};
 
   return {
     paymentId: String(order.id), // ID da Order (ex: ORD01...), não de um Payment
     status: order.status,
-    qrCode: paymentMethod.qr_code,
-    qrCodeBase64: paymentMethod.qr_code_base64,
+    qrCode: orderPaymentMethod.qr_code,
+    qrCodeBase64: orderPaymentMethod.qr_code_base64,
   };
 }
 
@@ -117,4 +138,4 @@ function verifyWebhookSignature(req) {
   return true;
 }
 
-module.exports = { createPixOrder, getOrder, verifyWebhookSignature, getWebhookDataId };
+module.exports = { createMercadoPagoOrder, getOrder, verifyWebhookSignature, getWebhookDataId };

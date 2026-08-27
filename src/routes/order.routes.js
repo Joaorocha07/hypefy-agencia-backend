@@ -14,8 +14,13 @@ router.use(authenticate, attachMenu('pedidos'));
  * /orders:
  *   post:
  *     tags: [Orders]
- *     summary: Criar pedido e gerar pagamento PIX (Mercado Pago)
- *     description: Para produtos ENGAJAMENTO informe targetUsername e/ou targetUrl. Para produtos digitais valida disponibilidade de estoque.
+ *     summary: Criar pedido e gerar pagamento via Mercado Pago (PIX ou cartão de crédito/débito)
+ *     description: >
+ *       Para produtos ENGAJAMENTO informe targetUsername e/ou targetUrl. Para produtos digitais valida disponibilidade de estoque.
+ *       Para paymentMethod=CREDIT_CARD, cardToken/cardPaymentMethodId/installments são obrigatórios — gerados no client via
+ *       Card Payment Brick (@mercadopago/sdk-react), nunca envie dados de cartão em texto puro. O Brick aceita tanto crédito
+ *       quanto débito; cardPaymentTypeId informa qual foi usado (default credit_card) e define o paymentMethod final gravado
+ *       no pedido (CREDIT_CARD ou DEBIT_CARD).
  *     requestBody:
  *       required: true
  *       content:
@@ -29,6 +34,12 @@ router.use(authenticate, attachMenu('pedidos'));
  *               couponCode: { type: string }
  *               targetUsername: { type: string }
  *               targetUrl: { type: string, format: uri }
+ *               paymentMethod: { type: string, enum: [PIX, CREDIT_CARD], default: PIX }
+ *               cardToken: { type: string, description: 'Token do cartão gerado pelo Card Payment Brick — obrigatório para CREDIT_CARD' }
+ *               cardPaymentMethodId: { type: string, description: 'Bandeira do cartão (ex: master, visa) — obrigatório para CREDIT_CARD' }
+ *               cardIssuerId: { type: string }
+ *               cardPaymentTypeId: { type: string, enum: [credit_card, debit_card], default: credit_card }
+ *               installments: { type: integer, description: 'Obrigatório para CREDIT_CARD' }
  *     responses:
  *       201:
  *         description: Pedido criado com QR Code PIX (mercadoPagoQrCode / mercadoPagoQrCodeBase64)

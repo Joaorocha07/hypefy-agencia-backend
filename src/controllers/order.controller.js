@@ -4,7 +4,7 @@ const orderService = require('../services/order.service');
 
 const create = asyncHandler(async (req, res) => {
   const order = await orderService.createOrder(req.user.id, req.body);
-  success(res, order, 'Pedido criado — aguardando pagamento via PIX', 201);
+  success(res, order, 'Pedido criado', 201);
 });
 
 const myOrders = asyncHandler(async (req, res) => {

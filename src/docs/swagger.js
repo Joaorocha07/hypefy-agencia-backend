@@ -206,7 +206,7 @@ const options = {
             totalPrice: { type: 'number' },
             discountAmount: { type: 'number' },
             couponCode: { type: 'string', nullable: true },
-            paymentMethod: { type: 'string', enum: ['PIX'] },
+            paymentMethod: { type: 'string', enum: ['PIX', 'CREDIT_CARD', 'DEBIT_CARD'] },
             paymentStatus: { type: 'string', enum: ['PENDING', 'PAID', 'FAILED', 'REFUNDED'] },
             mercadoPagoPaymentId: { type: 'string', nullable: true },
             mercadoPagoQrCode: { type: 'string', nullable: true },

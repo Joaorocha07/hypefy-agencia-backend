@@ -45,8 +45,28 @@ async function computePricing(product, quantity) {
 }
 
 async function createOrder(userId, data) {
-  const { productId, couponCode, targetUsername, targetUrl, deviceId, customComments } = data;
+  const {
+    productId,
+    couponCode,
+    targetUsername,
+    targetUrl,
+    deviceId,
+    customComments,
+    paymentMethod = 'PIX',
+    cardToken,
+    cardPaymentMethodId,
+    cardIssuerId,
+    cardPaymentTypeId,
+    installments,
+  } = data;
   let { quantity } = data;
+
+  // paymentMethod (PIX/CREDIT_CARD) é a escolha de alto nível feita no
+  // formulário; pra cartão, o Brick também informa se é crédito ou débito
+  // (cardPaymentTypeId) — é isso que decide o valor final gravado no pedido
+  // e o payment_method.type declarado pro Mercado Pago.
+  const resolvedPaymentMethod =
+    paymentMethod === 'CREDIT_CARD' && cardPaymentTypeId === 'debit_card' ? 'DEBIT_CARD' : paymentMethod;
 
   const product = await prisma.product.findUnique({ where: { id: productId }, include: { category: true } });
   if (!product || !product.isActive) throw new AppError('Produto não encontrado ou indisponível', 404);
@@ -96,6 +116,7 @@ async function createOrder(userId, data) {
       targetUsername,
       targetUrl,
       customComments: product.acceptsCustomComments ? (customComments || null) : null,
+      paymentMethod: resolvedPaymentMethod,
       paymentStatus: 'PENDING',
       orderStatus: 'PENDING',
     },
@@ -105,7 +126,8 @@ async function createOrder(userId, data) {
 
   let payment;
   try {
-    payment = await paymentService.createPixOrder({
+    payment = await paymentService.createMercadoPagoOrder({
+      paymentMethod,
       amount: totalPrice,
       description: product.title,
       payerEmail: user.email,
@@ -122,6 +144,16 @@ async function createOrder(userId, data) {
           categoryId: mercadoPagoCategoryId(product.category.name),
         },
       ],
+      card:
+        paymentMethod === 'CREDIT_CARD'
+          ? {
+              token: cardToken,
+              paymentMethodId: cardPaymentMethodId,
+              issuerId: cardIssuerId,
+              installments,
+              type: cardPaymentTypeId,
+            }
+          : undefined,
     });
   } catch (err) {
     await prisma.order.update({
@@ -130,15 +162,16 @@ async function createOrder(userId, data) {
     });
     // Loga só a mensagem/erros estruturados do SDK, nunca o objeto de erro
     // completo — ele pode ecoar o payload enviado (email/CPF do comprador).
-    console.error('Falha ao criar pagamento PIX no Mercado Pago:', {
+    console.error('Falha ao criar pagamento no Mercado Pago:', {
       orderId: order.id,
+      paymentMethod,
       message: err.message,
       errors: err.errors,
     });
-    throw new AppError('Não foi possível gerar o pagamento PIX no momento. Tente novamente em instantes.', 502);
+    throw new AppError('Não foi possível gerar o pagamento no momento. Tente novamente em instantes.', 502);
   }
 
-  const updatedOrder = await prisma.order.update({
+  await prisma.order.update({
     where: { id: order.id },
     data: {
       // mercadoPagoPaymentId guarda o ID da Order da Orders API (ex: ORD01...), usado pelo webhook para reconciliar.
@@ -148,7 +181,17 @@ async function createOrder(userId, data) {
     },
   });
 
-  return updatedOrder;
+  // Cartão costuma responder aprovado/recusado na própria chamada (ao contrário
+  // do PIX, que fica pending até o pagador escanear) — reconcilia na hora em vez
+  // de fazer o cliente esperar o polling + webhook pra ver o resultado.
+  if (PAID_ORDER_STATUSES.includes(payment.status)) {
+    return markOrderAsPaid(order.id);
+  }
+  if (FAILED_ORDER_STATUSES.includes(payment.status)) {
+    return markOrderAsFailed(order.id);
+  }
+
+  return prisma.order.findUnique({ where: { id: order.id } });
 }
 
 // Monta o link do WhatsApp com mensagem pré-preenchida ("Olá, vim do site e

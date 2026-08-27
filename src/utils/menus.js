@@ -5,6 +5,7 @@
 const ADMIN_MENUS = [
   'dashboard',
   'pedidos',
+  'pedidosManuais',
   'produtos',
   'estoque',
   'clientes',

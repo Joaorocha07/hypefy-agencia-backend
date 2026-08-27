@@ -51,7 +51,7 @@ router.get('/summary', validate(summarySchema), controller.summary);
  *         schema: { type: string, format: uuid }
  *     responses:
  *       200:
- *         description: Lista de pedidos pagos no filtro + receita total
+ *         description: Lista de pedidos pagos no filtro + pagamentos PIX externos (isManual=true, sem filtro por userId) + receita total
  *         content:
  *           application/json:
  *             schema: { $ref: '#/components/schemas/ApiResponse' }

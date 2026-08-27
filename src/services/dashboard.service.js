@@ -44,13 +44,25 @@ async function getSummary(period = 'month', visibleFrom = null) {
   let startDate = periodStartDate(period);
   if (visibleFrom && visibleFrom > startDate) startDate = visibleFrom;
 
-  const paidOrders = await prisma.order.findMany({
-    where: { paymentStatus: 'PAID', createdAt: { gte: startDate } },
-    select: { id: true, totalPrice: true },
-  });
+  const [paidOrders, manualPixPayments] = await Promise.all([
+    prisma.order.findMany({
+      where: { paymentStatus: 'PAID', createdAt: { gte: startDate } },
+      select: { id: true, totalPrice: true },
+    }),
+    // PIX pago fora do site (ver manualPixPayment.service.js) — soma junto pra
+    // "Total vendido"/"Nº de pedidos"/"Ticket médio" refletirem todas as vendas,
+    // não só as feitas pelo checkout. A receita (Transaction SALE) já é somada
+    // à parte por getNetProfitSince, que roda por baixo dos panos aqui embaixo.
+    prisma.manualPixPayment.findMany({
+      where: { createdAt: { gte: startDate } },
+      select: { id: true, amount: true },
+    }),
+  ]);
 
-  const totalSales = paidOrders.reduce((acc, o) => acc + Number(o.totalPrice), 0);
-  const orderCount = paidOrders.length;
+  const totalSales =
+    paidOrders.reduce((acc, o) => acc + Number(o.totalPrice), 0) +
+    manualPixPayments.reduce((acc, p) => acc + Number(p.amount), 0);
+  const orderCount = paidOrders.length + manualPixPayments.length;
   const averageTicket = orderCount > 0 ? totalSales / orderCount : 0;
 
   const { revenue, costs, refunds, netProfit } = await getNetProfitSince(startDate);
@@ -74,28 +86,70 @@ async function getDetailedReport({ startDate, endDate, productId, userId }, visi
     effectiveStartDate = visibleFrom;
   }
 
-  const where = {
-    paymentStatus: 'PAID',
+  const dateWhere = {
     ...(effectiveStartDate && { createdAt: { gte: effectiveStartDate } }),
     ...(endDate && {
       createdAt: { ...(effectiveStartDate && { gte: effectiveStartDate }), lte: new Date(endDate) },
     }),
-    ...(productId && { productId }),
-    ...(userId && { userId }),
   };
 
   const orders = await prisma.order.findMany({
-    where,
+    where: {
+      paymentStatus: 'PAID',
+      ...dateWhere,
+      ...(productId && { productId }),
+      ...(userId && { userId }),
+    },
     include: {
-      product: { select: { id: true, title: true, category: true, platform: true } },
+      product: { select: { title: true, category: { select: { name: true } }, platform: { select: { name: true } } } },
       user: { select: { id: true, name: true, email: true } },
     },
     orderBy: { createdAt: 'desc' },
   });
 
-  const totalRevenue = orders.reduce((acc, o) => acc + Number(o.totalPrice), 0);
+  const orderRows = orders.map((o) => ({
+    id: o.id,
+    createdAt: o.createdAt,
+    quantity: o.quantity,
+    totalPrice: o.totalPrice,
+    orderStatus: o.orderStatus,
+    isManual: false,
+    product: o.product,
+    customerName: o.user.name ?? o.user.email,
+    customerContact: o.user.email,
+  }));
 
-  return { orders, totalRevenue, count: orders.length };
+  // PIX pago fora do site (ver manualPixPayment.service.js) — sem userId (não é
+  // cliente com conta no site), então só entra no relatório quando o filtro não
+  // é o histórico de um cliente específico.
+  let manualRows = [];
+  if (!userId) {
+    const manualPayments = await prisma.manualPixPayment.findMany({
+      where: { ...dateWhere, ...(productId && { productId }) },
+      include: {
+        product: { select: { title: true, category: { select: { name: true } }, platform: { select: { name: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    manualRows = manualPayments.map((p) => ({
+      id: p.id,
+      createdAt: p.createdAt,
+      quantity: 1,
+      totalPrice: p.amount,
+      orderStatus: null,
+      isManual: true,
+      product: p.product,
+      customerName: p.customerName,
+      customerContact: p.customerPhone,
+    }));
+  }
+
+  const rows = [...orderRows, ...manualRows].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const totalRevenue = rows.reduce((acc, r) => acc + Number(r.totalPrice), 0);
+
+  return { orders: rows, totalRevenue, count: rows.length };
 }
 
 module.exports = { getSummary, getDetailedReport, getNetProfitSince };
