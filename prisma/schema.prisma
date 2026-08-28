@@ -368,6 +368,9 @@ model ManualPixPayment {
   // Transaction (SALE) criada junto — mantido em sincronia com amount/descrição
   // na edição e apagado junto na exclusão, pra nunca deixar receita órfã.
   transactionId  String   @unique @map("transaction_id")
+  // Transaction (COST) do custo do produto vendido — só existe quando há produto
+  // vinculado com custo > 0. Mesmo tratamento de sincronia/exclusão do SALE.
+  costTransactionId String? @unique @map("cost_transaction_id")
   registeredById String   @map("registered_by_id")
   createdAt      DateTime @default(now()) @map("created_at")
 
