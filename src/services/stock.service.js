@@ -1,5 +1,34 @@
 const prisma = require('../config/db');
 const AppError = require('../utils/appError');
+const { sendMail } = require('../config/mailer');
+const { isGuestCheckoutProduct } = require('../utils/guestCheckout');
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+}
+
+// Quem comprou pelo checkout sem login (conta sem senha e sem Google) não tem
+// como ver o chat do pedido — a atualização de credenciais vai por email.
+// Falha de envio só loga: as mensagens no chat já foram gravadas.
+async function emailAccessUpdateToGuests(productId, orderIds, content) {
+  if (!isGuestCheckoutProduct(productId)) return;
+  const orders = await prisma.order.findMany({
+    where: { id: { in: orderIds }, user: { passwordHash: null, googleId: null } },
+    select: { id: true, product: { select: { title: true } }, user: { select: { email: true } } },
+  });
+  for (const order of orders) {
+    try {
+      await sendMail({
+        to: order.user.email,
+        subject: `Acesso atualizado — ${order.product.title}`,
+        html: `<p>As credenciais de acesso de <strong>${escapeHtml(order.product.title)}</strong> foram atualizadas:</p>
+               <pre style="white-space:pre-wrap;font-family:inherit;background:#f1f5f9;padding:12px;border-radius:8px">${escapeHtml(content)}</pre>`,
+      });
+    } catch (err) {
+      console.error('Falha ao enviar email de atualização de acesso:', { orderId: order.id, message: err.message });
+    }
+  }
+}
 
 /**
  * Recomputes Product.stockQuantity from the actual unsold StockItem rows and
@@ -313,6 +342,8 @@ async function notifyAccessUpdate(productId, content, sentById, orderIds) {
       data: { productId, content, recipientCount: targetIds.length, sentById },
     }),
   ]);
+
+  await emailAccessUpdateToGuests(productId, targetIds, content);
 
   return { notifiedCount: targetIds.length };
 }
