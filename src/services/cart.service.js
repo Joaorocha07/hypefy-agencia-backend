@@ -149,6 +149,9 @@ async function createCartOrder(userId, data) {
     cardPaymentTypeId,
     installments,
     deviceId,
+    // Só o checkout sem login (guestOrder.service.js) envia — lá o CPF vem do
+    // formulário e não é gravado em contas já existentes.
+    payerCpf,
   } = data;
 
   const resolvedPaymentMethod =
@@ -204,7 +207,7 @@ async function createCartOrder(userId, data) {
       payerEmail: user.email,
       payerFirstName: firstName,
       payerLastName: lastName,
-      payerCpf: user.cpf || undefined,
+      payerCpf: payerCpf || user.cpf || undefined,
       externalReference: cartOrder.id,
       deviceId,
       // Cada item vira 1 linha descritiva com quantity=1 e o valor total já

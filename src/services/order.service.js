@@ -5,6 +5,7 @@ const engagementService = require('./engagement.service');
 const paymentService = require('./payment.service');
 const { syncProductStockQuantity } = require('./stock.service');
 const { sendMail } = require('../config/mailer');
+const { isGuestCheckoutProduct } = require('../utils/guestCheckout');
 
 // Status da Orders API do Mercado Pago (não confundir com o status do Payment legado).
 // Compartilhado pelo webhook e pelo job de reconciliação (reconcilePendingPixOrders).
@@ -58,6 +59,9 @@ async function createOrder(userId, data) {
     cardIssuerId,
     cardPaymentTypeId,
     installments,
+    // Só o checkout sem login (guestOrder.service.js) envia — lá o CPF vem do
+    // formulário e não é gravado em contas já existentes.
+    payerCpf,
   } = data;
   let { quantity } = data;
 
@@ -133,7 +137,7 @@ async function createOrder(userId, data) {
       payerEmail: user.email,
       payerFirstName: firstName,
       payerLastName: lastName,
-      payerCpf: user.cpf || undefined,
+      payerCpf: payerCpf || user.cpf || undefined,
       externalReference: order.id,
       deviceId,
       items: [
@@ -307,8 +311,54 @@ function computeOrderCost(order, product, usedManualStock = false) {
 
 // Falha no envio desse aviso não deve derrubar a confirmação de um pagamento
 // já processado (estoque reservado, transação registrada) — só loga.
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+}
+
+// Produtos do checkout sem login: o comprador pode nunca ter entrado no site,
+// então o próprio email leva o acesso (ou avisa que a equipe vai enviar, quando
+// a vaga usada foi manual) em vez de só apontar para a página do pedido.
+async function notifyGuestOrderPaid(order) {
+  const delivery = await prisma.chatMessage.findFirst({
+    where: { orderId: order.id, isDelivery: true },
+    orderBy: { createdAt: 'desc' },
+  });
+  const forgotUrl = `${process.env.FRONTEND_URL}/esqueci-senha`;
+  const body = delivery
+    ? `<p>Aqui está o seu acesso:</p>
+       <pre style="white-space:pre-wrap;font-family:inherit;background:#f1f5f9;padding:12px;border-radius:8px">${escapeHtml(delivery.message)}</pre>`
+    : '<p>Nossa equipe vai enviar o seu acesso para este email em breve.</p>';
+  // Produtos com código de acesso (ex: ChatGPT compartilhado) — quem comprou
+  // sem login não tem o chat do pedido, então o pedido do código vai pelo WhatsApp.
+  const waLink = buildManualDeliveryWhatsAppLink(order.product);
+  const codeNote =
+    order.product.isManualDelivery && waLink
+      ? `<p>Para entrar na conta você vai precisar de um código de acesso. Peça pelo WhatsApp
+         (seg–sex 8h–17h, sáb 8h–14h): <a href="${waLink}">${waLink}</a></p>`
+      : '';
+
+  await sendMail({
+    to: order.user.email,
+    subject: `Seu acesso — ${order.product.title}`,
+    html: `<p>Olá${order.user.name ? `, ${escapeHtml(order.user.name)}` : ''}!</p>
+           <p>Recebemos o seu pagamento de <strong>${escapeHtml(order.product.title)}</strong>.</p>
+           ${body}
+           ${codeNote}
+           <p>Quer acompanhar seus pedidos pelo site? Crie uma senha com este email em
+           <a href="${forgotUrl}">${forgotUrl}</a>.</p>`,
+  });
+}
+
 async function notifyOrderPaid(order) {
   try {
+    // Conta sem senha e sem Google = criada pelo checkout sem login; quem
+    // comprou logado continua recebendo o email padrão (acesso pelo chat).
+    const isGuestBuyer = !order.user.passwordHash && !order.user.googleId;
+    if (isGuestBuyer && isGuestCheckoutProduct(order.product.id)) {
+      await notifyGuestOrderPaid(order);
+      return;
+    }
+
     const productUrl = `${process.env.FRONTEND_URL}/produtos/${order.product.id}`;
     const orderUrl = `${process.env.FRONTEND_URL}/pedidos/${order.id}`;
     await sendMail({
@@ -329,10 +379,15 @@ async function notifyOrderPaid(order) {
 async function markOrderAsPaid(orderId) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    include: { product: { include: { category: true } }, user: { select: { id: true, email: true, name: true } } },
+    include: {
+      product: { include: { category: true } },
+      user: { select: { id: true, email: true, name: true, passwordHash: true, googleId: true } },
+    },
   });
   if (!order) throw new AppError('Pedido não encontrado', 404);
-  if (order.paymentStatus === 'PAID') return order; // idempotente
+  // idempotente — relê sem o include de user (que traz passwordHash) caso o
+  // retorno chegue a uma resposta HTTP (createOrder devolve isto).
+  if (order.paymentStatus === 'PAID') return prisma.order.findUnique({ where: { id: orderId } });
 
   await prisma.order.update({ where: { id: orderId }, data: { paymentStatus: 'PAID' } });
 
